@@ -7,6 +7,10 @@ declare module "next-auth" {
     role: UserRole
     avatar?: string
     isVerified: boolean
+    emailVerified: boolean
+    phoneVerified: boolean
+    kycVerified: boolean
+    profileCompleted: boolean
     vendorProfile?: any
     driverProfile?: any
   }
@@ -14,6 +18,7 @@ declare module "next-auth" {
   interface Session {
     user: User & {
       id: string
+      provider?: string
     }
   }
 }
@@ -23,7 +28,12 @@ declare module "next-auth/jwt" {
     role: UserRole
     avatar?: string
     isVerified: boolean
+    emailVerified: boolean
+    phoneVerified: boolean
+    kycVerified: boolean
+    profileCompleted: boolean
     vendorProfile?: any
     driverProfile?: any
+    provider?: string
   }
 }

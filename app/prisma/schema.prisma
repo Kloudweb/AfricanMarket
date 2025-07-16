@@ -59,21 +59,62 @@ model User {
   avatar        String?
   isVerified    Boolean  @default(false)
   isActive      Boolean  @default(true)
+  
+  // Enhanced authentication fields
+  emailVerified         Boolean   @default(false)
+  emailVerifiedAt       DateTime?
+  phoneVerified         Boolean   @default(false)
+  phoneVerifiedAt       DateTime?
+  kycVerified           Boolean   @default(false)
+  kycVerifiedAt         DateTime?
+  profileCompleted      Boolean   @default(false)
+  profileCompletedAt    DateTime?
+  
+  // Security fields
+  failedLoginAttempts   Int       @default(0)
+  lockedUntil           DateTime?
+  passwordResetToken    String?
+  passwordResetExpires  DateTime?
+  
+  // Two-factor authentication
+  twoFactorEnabled      Boolean   @default(false)
+  twoFactorSecret       String?
+  twoFactorBackupCodes  String[]
+  
+  // Social login fields
+  socialProviders       String[]
+  
+  // Additional profile fields
+  firstName             String?
+  lastName              String?
+  dateOfBirth           DateTime?
+  gender                String?
+  address               String?
+  city                  String?
+  province              String?
+  postalCode            String?
+  country               String?   @default("Canada")
+  timezone              String?   @default("America/St_Johns")
+  language              String?   @default("en")
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Relations
-  accounts         Account[]
-  sessions         Session[]
-  customerOrders   Order[]      @relation("CustomerOrders")
-  vendorProfile    Vendor?
-  driverProfile    Driver?
-  customerRides    Ride[]       @relation("CustomerRides")
-  reviews          Review[]
-  payments         Payment[]
-  notifications    Notification[]
-  chatMessages     ChatMessage[]
-  addresses        Address[]
+  accounts           Account[]
+  sessions           Session[]
+  customerOrders     Order[]              @relation("CustomerOrders")
+  vendorProfile      Vendor?
+  driverProfile      Driver?
+  customerRides      Ride[]               @relation("CustomerRides")
+  reviews            Review[]
+  payments           Payment[]
+  notifications      Notification[]
+  chatMessages       ChatMessage[]
+  addresses          Address[]
+  verificationTokens VerificationToken[]
+  documents          Document[]
+  kycApplications    KYCApplication[]
 }
 
 model Account {
@@ -135,6 +176,44 @@ model Vendor {
   commissionRate        Float              @default(0.20)
   rating                Float              @default(0)
   totalReviews          Int                @default(0)
+  
+  // Enhanced business information
+  businessEmail         String?
+  businessWebsite       String?
+  businessRegistrationNumber String?
+  taxNumber             String?
+  businessCategory      String?
+  businessSubcategory   String?
+  cuisineTypes          String[]           // For food vendors
+  servingRadius         Float?             // in kilometers
+  minimumOrderAmount    Float?
+  deliveryFee           Float?
+  deliveryTime          String?            // e.g., "30-45 minutes"
+  
+  // Social media
+  facebookUrl           String?
+  instagramUrl          String?
+  twitterUrl            String?
+  
+  // Business verification
+  businessVerified      Boolean            @default(false)
+  businessVerifiedAt    DateTime?
+  foodSafetyVerified    Boolean            @default(false)
+  foodSafetyVerifiedAt  DateTime?
+  taxVerified           Boolean            @default(false)
+  taxVerifiedAt         DateTime?
+  
+  // Operational settings
+  acceptsPreorders      Boolean            @default(false)
+  acceptsCashOnDelivery Boolean            @default(true)
+  acceptsCardPayment    Boolean            @default(true)
+  acceptsDigitalPayment Boolean            @default(true)
+  
+  // Profile completion
+  profileCompletionScore Int               @default(0) // 0-100
+  onboardingCompleted   Boolean            @default(false)
+  onboardingCompletedAt DateTime?
+  
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
@@ -191,6 +270,59 @@ model Driver {
   totalReviews          Int                @default(0)
   totalDeliveries       Int                @default(0)
   totalRides            Int                @default(0)
+  
+  // Enhanced driver information
+  licenseExpiry         DateTime?
+  licenseClass          String?            // Class of license
+  licenseIssuedBy       String?            // Province/Authority
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  emergencyContactRelation String?
+  
+  // Vehicle details
+  vehicleVin            String?
+  vehicleRegistrationExpiry DateTime?
+  vehicleInspectionExpiry DateTime?
+  vehicleInsuranceExpiry DateTime?
+  vehicleInsuranceProvider String?
+  vehicleInsurancePolicyNumber String?
+  
+  // Service preferences
+  serviceTypes          String[]           // DELIVERY, RIDESHARE, BOTH
+  serviceRadius         Float?             // in kilometers
+  workingHours          Json?              // Similar to business hours
+  preferredAreas        String[]           // Preferred service areas
+  
+  // Background check
+  backgroundCheckStatus VerificationStatus @default(PENDING)
+  backgroundCheckDate   DateTime?
+  criminalRecordCheck   Boolean            @default(false)
+  drivingRecordCheck    Boolean            @default(false)
+  
+  // Driver verification
+  licenseVerified       Boolean            @default(false)
+  licenseVerifiedAt     DateTime?
+  vehicleVerified       Boolean            @default(false)
+  vehicleVerifiedAt     DateTime?
+  insuranceVerified     Boolean            @default(false)
+  insuranceVerifiedAt   DateTime?
+  backgroundVerified    Boolean            @default(false)
+  backgroundVerifiedAt  DateTime?
+  
+  // Operational settings
+  acceptsCashPayment    Boolean            @default(true)
+  acceptsCardPayment    Boolean            @default(true)
+  acceptsDigitalPayment Boolean            @default(true)
+  canDeliverFood        Boolean            @default(true)
+  canTransportPassengers Boolean           @default(true)
+  hasInsulatedBag       Boolean            @default(false)
+  hasGpsDevice          Boolean            @default(false)
+  
+  // Profile completion
+  profileCompletionScore Int               @default(0) // 0-100
+  onboardingCompleted   Boolean            @default(false)
+  onboardingCompletedAt DateTime?
+  
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
@@ -431,4 +563,192 @@ model SystemConfig {
   description         String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+// New models for enhanced authentication
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PHONE_VERIFICATION
+  PASSWORD_RESET
+  TWO_FACTOR_SETUP
+  ACCOUNT_ACTIVATION
+}
+
+enum DocumentType {
+  PROFILE_PHOTO
+  GOVERNMENT_ID
+  DRIVERS_LICENSE
+  VEHICLE_REGISTRATION
+  VEHICLE_INSURANCE
+  BUSINESS_LICENSE
+  FOOD_SAFETY_CERTIFICATE
+  BUSINESS_REGISTRATION
+  TAX_CERTIFICATE
+  BANK_STATEMENT
+  PROOF_OF_ADDRESS
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum KYCStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+  RESUBMISSION_REQUIRED
+}
+
+model VerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  type      TokenType
+  token     String    @unique
+  code      String?   // For SMS/Email verification codes
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+  maxAttempts Int     @default(3)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId, type])
+}
+
+model Document {
+  id           String         @id @default(cuid())
+  userId       String
+  type         DocumentType
+  title        String
+  description  String?
+  fileName     String
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  cloudinaryId String?
+  status       DocumentStatus @default(PENDING)
+  uploadedAt   DateTime       @default(now())
+  reviewedAt   DateTime?
+  reviewedBy   String?
+  rejectionReason String?
+  expiresAt    DateTime?
+  metadata     Json?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycApplications KYCApplication[] @relation("KYCDocuments")
+
+  @@index([userId, type])
+  @@index([status])
+}
+
+model KYCApplication {
+  id                String        @id @default(cuid())
+  userId            String
+  status            KYCStatus     @default(NOT_STARTED)
+  applicationLevel  String        @default("BASIC") // BASIC, STANDARD, PREMIUM
+  submittedAt       DateTime?
+  reviewedAt        DateTime?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  expiresAt         DateTime?
+  reviewedBy        String?
+  rejectionReason   String?
+  notes             String?
+  completionScore   Int           @default(0) // 0-100
+  
+  // Required documents checklist
+  profilePhotoRequired      Boolean @default(true)
+  governmentIdRequired      Boolean @default(true)
+  proofOfAddressRequired    Boolean @default(true)
+  businessLicenseRequired   Boolean @default(false)
+  foodSafetyRequired        Boolean @default(false)
+  driversLicenseRequired    Boolean @default(false)
+  vehicleRegistrationRequired Boolean @default(false)
+  vehicleInsuranceRequired  Boolean @default(false)
+  
+  // Document verification status
+  profilePhotoVerified      Boolean @default(false)
+  governmentIdVerified      Boolean @default(false)
+  proofOfAddressVerified    Boolean @default(false)
+  businessLicenseVerified   Boolean @default(false)
+  foodSafetyVerified        Boolean @default(false)
+  driversLicenseVerified    Boolean @default(false)
+  vehicleRegistrationVerified Boolean @default(false)
+  vehicleInsuranceVerified  Boolean @default(false)
+  
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents Document[] @relation("KYCDocuments")
+
+  @@index([userId])
+  @@index([status])
+}
+
+model LoginAttempt {
+  id          String   @id @default(cuid())
+  email       String
+  ipAddress   String
+  userAgent   String?
+  successful  Boolean
+  failureReason String?
+  timestamp   DateTime @default(now())
+  country     String?
+  city        String?
+  device      String?
+  
+  @@index([email])
+  @@index([ipAddress])
+  @@index([timestamp])
+}
+
+model PasswordResetLog {
+  id          String   @id @default(cuid())
+  userId      String
+  email       String
+  ipAddress   String
+  userAgent   String?
+  tokenUsed   String
+  successful  Boolean
+  timestamp   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([email])
+  @@index([timestamp])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String   // LOGIN, LOGOUT, PROFILE_UPDATE, DOCUMENT_UPLOAD, etc.
+  resource    String?  // The resource being acted upon
+  resourceId  String?  // ID of the resource
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([timestamp])
 }

@@ -1,7 +1,7 @@
 
 import { prisma } from '@/lib/db'
 import { realtimeService } from '@/lib/realtime'
-import { notificationService } from '@/lib/notification-service'
+import { NotificationService } from '@/lib/notification-service'
 
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY_FOR_PICKUP' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
 
@@ -64,11 +64,12 @@ export class TrackingService {
       )
 
       // Send notifications
-      await notificationService.sendOrderNotification(
-        data.orderId,
-        this.getNotificationTypeFromStatus(data.status),
-        data.message
-      )
+      await NotificationService.sendNotification({
+        userId: data.updatedBy,
+        title: 'Order Status Update',
+        body: data.message || 'Your order status has been updated',
+        type: 'order_status'
+      })
 
       // Handle status-specific actions
       await this.handleStatusSpecificActions(data.orderId, data.status, data.updatedBy)
@@ -158,11 +159,12 @@ export class TrackingService {
       })
 
       // Send notification about preparation time
-      await notificationService.sendOrderNotification(
-        orderId,
-        'PREPARATION_TIME_UPDATED',
-        `Estimated preparation time: ${estimatedTime} minutes`
-      )
+      await NotificationService.sendNotification({
+        userId: 'system',
+        title: 'Preparation Time Updated',
+        body: `Estimated preparation time: ${estimatedTime} minutes`,
+        type: 'preparation_time'
+      })
 
     } catch (error) {
       console.error('Error updating preparation time:', error)
@@ -228,7 +230,12 @@ export class TrackingService {
           assignments.push(assignment)
 
           // Send assignment notification
-          await notificationService.sendDriverAssignmentNotification(driver.id, orderId)
+          await NotificationService.sendNotification({
+            userId: driver.userId,
+            title: 'New Order Assignment',
+            body: 'You have been assigned a new order',
+            type: 'order_assignment'
+          })
           await realtimeService.sendDriverAssignment(driver.id, assignment.id, order)
         }
       }
@@ -339,11 +346,12 @@ export class TrackingService {
         })
       } else if (geofenceType === 'delivery') {
         // Driver arrived at delivery location
-        await notificationService.sendOrderNotification(
-          orderId,
-          'DRIVER_ARRIVED',
-          'Your driver has arrived at the delivery location'
-        )
+        await NotificationService.sendNotification({
+          userId: 'system',
+          title: 'Driver Arrived',
+          body: 'Your driver has arrived at the delivery location',
+          type: 'driver_arrived'
+        })
       }
     } catch (error) {
       console.error('Error handling geofence enter:', error)

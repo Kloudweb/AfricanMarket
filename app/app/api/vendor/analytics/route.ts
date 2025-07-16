@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { UserRole, OrderStatus } from "@prisma/client";
+import { UserRole, OrderStatus } from "@/lib/types";
 
 // GET /api/vendor/analytics - Get vendor analytics
 export async function GET(request: NextRequest) {

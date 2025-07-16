@@ -1,6 +1,6 @@
 
 import { v2 as cloudinary } from 'cloudinary'
-import { DocumentType } from '@prisma/client'
+import { DocumentType } from './types'
 
 export class CloudinaryService {
   constructor() {

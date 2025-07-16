@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { cloudinaryService } from "@/lib/cloudinary-service"
 import { prisma } from "@/lib/db"
-import { DocumentType, DocumentStatus } from "@prisma/client"
+import { DocumentType, DocumentStatus } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 

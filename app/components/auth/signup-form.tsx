@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, Mail, Lock, User, Phone, UserCheck } from "lucide-react"
 import { toast } from "sonner"
-import { UserRole } from "@prisma/client"
+import { UserRole } from "@/lib/types"
 
 export function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false)

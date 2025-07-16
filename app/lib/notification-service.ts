@@ -1,370 +1,468 @@
 
 import { prisma } from '@/lib/db'
-import { realtimeService } from '@/lib/realtime'
-
-export type NotificationType = 
-  | 'ORDER_PLACED'
-  | 'ORDER_CONFIRMED'
-  | 'ORDER_PREPARING'
-  | 'ORDER_READY'
-  | 'DRIVER_ASSIGNED'
-  | 'DRIVER_ARRIVED'
-  | 'ORDER_PICKED_UP'
-  | 'ORDER_OUT_FOR_DELIVERY'
-  | 'ORDER_DELIVERED'
-  | 'ORDER_CANCELLED'
-  | 'PREPARATION_TIME_UPDATED'
-  | 'DRIVER_LOCATION_UPDATE'
-
-export interface NotificationData {
-  type: NotificationType
-  userId: string
-  title: string
-  message: string
-  orderId?: string
-  rideId?: string
-  data?: any
-}
+import { RealTimeService } from './real-time-service'
 
 export class NotificationService {
-  private static instance: NotificationService
-
-  static getInstance(): NotificationService {
-    if (!NotificationService.instance) {
-      NotificationService.instance = new NotificationService()
-    }
-    return NotificationService.instance
-  }
-
   // Send notification to user
-  async sendNotification(notification: NotificationData) {
+  static async sendNotification(data: {
+    userId: string
+    title: string
+    body: string
+    type: string
+    rideId?: string
+    orderId?: string
+    data?: any
+    persistent?: boolean
+  }) {
     try {
-      // Check user notification preferences
-      const preferences = await prisma.notificationPreferences.findUnique({
-        where: { userId: notification.userId }
+      // Create notification record
+      const notification = await prisma.notification.create({
+        data: {
+          userId: data.userId,
+          title: data.title,
+          message: data.body,
+          type: data.type,
+          rideId: data.rideId,
+          orderId: data.orderId,
+        }
       })
 
-      if (!preferences) {
-        // Create default preferences
-        await prisma.notificationPreferences.create({
+      // Send real-time notification if user is online
+      if (RealTimeService.isUserOnline(data.userId)) {
+        RealTimeService.sendCallEvent(data.userId, 'notification', {
+          id: notification.id,
+          title: data.title,
+          body: data.body,
+          type: data.type,
+          data: data.data || {},
+          timestamp: new Date()
+        })
+      } else {
+        // Queue push notification for offline user
+        await prisma.pushNotification.create({
           data: {
-            userId: notification.userId
+            userId: data.userId,
+            title: data.title,
+            body: data.body,
+            data: data.data || {},
+            rideId: data.rideId,
+            orderId: data.orderId,
+            sent: false,
           }
         })
       }
 
-      // Check if notifications are enabled
-      const isEnabled = this.isNotificationEnabled(notification.type, preferences)
-      if (!isEnabled) {
-        return
-      }
-
-      // Check quiet hours
-      if (preferences?.quietHours && this.isQuietHours(preferences)) {
-        return
-      }
-
-      // Send push notification
-      if (preferences?.push !== false) {
-        await this.sendPushNotification(notification)
-      }
-
-      // Send email notification
-      if (preferences?.email && this.shouldSendEmail(notification.type)) {
-        await this.sendEmailNotification(notification)
-      }
-
-      // Send SMS notification
-      if (preferences?.sms && this.shouldSendSMS(notification.type)) {
-        await this.sendSMSNotification(notification)
-      }
-
-      // Send real-time notification
-      realtimeService.sendNotification(
-        notification.userId,
-        notification.title,
-        notification.message,
-        notification.data
-      )
-
-      // Save notification to database
-      await prisma.notification.create({
-        data: {
-          userId: notification.userId,
-          type: notification.type,
-          title: notification.title,
-          message: notification.message,
-          orderId: notification.orderId,
-          rideId: notification.rideId
-        }
-      })
+      return notification
     } catch (error) {
       console.error('Error sending notification:', error)
+      throw error
     }
   }
 
-  // Send order-related notifications
-  async sendOrderNotification(orderId: string, type: NotificationType, customMessage?: string) {
+  // Send ride status notification
+  static async sendRideStatusNotification(rideId: string, status: string, customMessage?: string) {
     try {
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
+      const ride = await prisma.ride.findUnique({
+        where: { id: rideId },
         include: {
-          vendor: { select: { businessName: true, userId: true } },
-          driver: { 
-            include: { 
-              user: { select: { name: true } },
-              locations: {
-                where: { isOnline: true },
-                orderBy: { timestamp: 'desc' },
-                take: 1
-              }
+          customer: true,
+          driver: {
+            include: {
+              user: true
             }
           }
         }
       })
 
-      if (!order) return
-
-      const notifications = this.getOrderNotificationTemplates(type, order, customMessage)
-      
-      for (const notification of notifications) {
-        await this.sendNotification(notification)
+      if (!ride) {
+        throw new Error('Ride not found')
       }
+
+      const statusMessages = {
+        'ACCEPTED': 'Your ride has been accepted',
+        'DRIVER_ARRIVING': 'Your driver is arriving',
+        'IN_PROGRESS': 'Your ride is in progress',
+        'COMPLETED': 'Your ride has been completed',
+        'CANCELLED': 'Your ride has been cancelled'
+      }
+
+      const message = customMessage || statusMessages[status as keyof typeof statusMessages] || 'Ride status updated'
+
+      // Notify customer
+      await this.sendNotification({
+        userId: ride.customerId,
+        title: 'Ride Update',
+        body: message,
+        type: 'ride_status',
+        rideId: rideId,
+        data: {
+          status,
+          rideId,
+          driverName: ride.driver?.user?.name,
+          driverPhone: ride.driver?.user?.phone,
+        }
+      })
+
+      // Notify driver if applicable
+      if (ride.driverId && status !== 'ACCEPTED') {
+        await this.sendNotification({
+          userId: ride.driver!.userId,
+          title: 'Ride Update',
+          body: message,
+          type: 'ride_status',
+          rideId: rideId,
+          data: {
+            status,
+            rideId,
+            customerName: ride.customer.name,
+            customerPhone: ride.customer.phone,
+          }
+        })
+      }
+
     } catch (error) {
-      console.error('Error sending order notification:', error)
+      console.error('Error sending ride status notification:', error)
     }
   }
 
-  // Send driver assignment notification
-  async sendDriverAssignmentNotification(driverId: string, orderId: string) {
+  // Send safety alert notification
+  static async sendSafetyAlertNotification(alertId: string) {
     try {
-      const assignment = await prisma.driverAssignment.findFirst({
-        where: { driverId, orderId },
+      const alert = await prisma.safetyAlert.findUnique({
+        where: { id: alertId },
         include: {
-          order: {
+          ride: {
             include: {
-              vendor: { select: { businessName: true, address: true } },
-              items: {
+              customer: true,
+              driver: {
                 include: {
-                  product: { select: { name: true } }
+                  user: true
                 }
               }
             }
           },
-          driver: { select: { userId: true } }
+          user: true
         }
       })
 
-      if (!assignment) return
-
-      const notification: NotificationData = {
-        type: 'DRIVER_ASSIGNED',
-        userId: assignment.driver.userId,
-        title: 'New Delivery Assignment',
-        message: `You have a new delivery from ${assignment.order.vendor.businessName}`,
-        orderId,
-        data: {
-          assignmentId: assignment.id,
-          pickupAddress: assignment.order.vendor.address,
-          deliveryAddress: assignment.order.deliveryAddress,
-          eta: assignment.eta,
-          items: assignment.order.items.map(item => ({
-            name: item.product.name,
-            quantity: item.quantity
-          }))
-        }
+      if (!alert) {
+        throw new Error('Safety alert not found')
       }
 
-      await this.sendNotification(notification)
+      const alertMessages = {
+        'PANIC_BUTTON': 'Emergency alert triggered',
+        'ROUTE_DEVIATION': 'Route deviation detected',
+        'SPEED_VIOLATION': 'Speed limit violation detected',
+        'UNUSUAL_STOP': 'Unusual stop detected',
+        'EMERGENCY_CONTACT': 'Emergency contact activated',
+        'DRIVER_DISTRESS': 'Driver distress signal',
+        'PASSENGER_DISTRESS': 'Passenger distress signal',
+        'AUTOMATIC_DETECTION': 'Automatic safety alert triggered'
+      }
+
+      const message = alertMessages[alert.alertType] || 'Safety alert triggered'
+
+      // Notify the other party in the ride
+      const otherUserId = alert.triggeredBy === alert.ride.customerId ? 
+        alert.ride.driver?.userId : alert.ride.customerId
+
+      if (otherUserId) {
+        await this.sendNotification({
+          userId: otherUserId,
+          title: 'Safety Alert',
+          body: message,
+          type: 'safety_alert',
+          rideId: alert.rideId,
+          data: {
+            alertId,
+            alertType: alert.alertType,
+            severity: alert.severity,
+            location: alert.location,
+            triggeredBy: alert.user.name,
+          }
+        })
+      }
+
+      // Notify emergency contacts
+      const emergencyContacts = await prisma.emergencyContact.findMany({
+        where: {
+          userId: alert.triggeredBy,
+          isActive: true,
+          notifyEmergency: true
+        }
+      })
+
+      for (const contact of emergencyContacts) {
+        // TODO: Send SMS/email to emergency contact
+        console.log(`Emergency notification sent to ${contact.name} (${contact.phone})`)
+      }
+
     } catch (error) {
-      console.error('Error sending driver assignment notification:', error)
+      console.error('Error sending safety alert notification:', error)
     }
   }
 
-  // Check if notification type is enabled
-  private isNotificationEnabled(type: NotificationType, preferences: any): boolean {
-    if (!preferences) return true
-
-    switch (type) {
-      case 'ORDER_PLACED':
-      case 'ORDER_CONFIRMED':
-      case 'ORDER_PREPARING':
-      case 'ORDER_READY':
-      case 'ORDER_PICKED_UP':
-      case 'ORDER_OUT_FOR_DELIVERY':
-      case 'ORDER_DELIVERED':
-      case 'ORDER_CANCELLED':
-        return preferences.orderUpdates !== false
-      case 'PREPARATION_TIME_UPDATED':
-        return preferences.preparationTime !== false
-      case 'DRIVER_ASSIGNED':
-      case 'DRIVER_ARRIVED':
-        return preferences.driverAssigned !== false
-      case 'DRIVER_LOCATION_UPDATE':
-        return preferences.driverLocation !== false
-      default:
-        return true
-    }
-  }
-
-  // Check if it's quiet hours
-  private isQuietHours(preferences: any): boolean {
-    if (!preferences.quietHours || !preferences.quietStart || !preferences.quietEnd) {
-      return false
-    }
-
-    const now = new Date()
-    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0')
-    
-    return currentTime >= preferences.quietStart && currentTime <= preferences.quietEnd
-  }
-
-  // Check if email should be sent for this notification type
-  private shouldSendEmail(type: NotificationType): boolean {
-    const emailTypes: NotificationType[] = [
-      'ORDER_PLACED',
-      'ORDER_CONFIRMED',
-      'ORDER_DELIVERED',
-      'ORDER_CANCELLED'
-    ]
-    return emailTypes.includes(type)
-  }
-
-  // Check if SMS should be sent for this notification type
-  private shouldSendSMS(type: NotificationType): boolean {
-    const smsTypes: NotificationType[] = [
-      'DRIVER_ASSIGNED',
-      'ORDER_OUT_FOR_DELIVERY',
-      'ORDER_DELIVERED'
-    ]
-    return smsTypes.includes(type)
-  }
-
-  // Send push notification
-  private async sendPushNotification(notification: NotificationData) {
+  // Send ETA update notification
+  static async sendETAUpdateNotification(rideId: string, etaData: any) {
     try {
-      await prisma.pushNotification.create({
+      const ride = await prisma.ride.findUnique({
+        where: { id: rideId },
+        include: {
+          customer: true,
+          driver: {
+            include: {
+              user: true
+            }
+          }
+        }
+      })
+
+      if (!ride) {
+        throw new Error('Ride not found')
+      }
+
+      const etaMinutes = Math.round(etaData.timeRemaining / 60)
+      const message = `Your driver will arrive in approximately ${etaMinutes} minutes`
+
+      // Notify customer
+      await this.sendNotification({
+        userId: ride.customerId,
+        title: 'ETA Update',
+        body: message,
+        type: 'eta_update',
+        rideId: rideId,
         data: {
-          userId: notification.userId,
-          title: notification.title,
-          body: notification.message,
-          data: notification.data,
-          orderId: notification.orderId,
-          rideId: notification.rideId,
-          sent: true,
-          sentAt: new Date()
+          etaMinutes,
+          estimatedArrival: etaData.estimatedArrival,
+          distanceRemaining: etaData.distanceRemaining,
+          confidence: etaData.confidence
+        }
+      })
+
+      // Send real-time ETA update
+      RealTimeService.sendETAUpdate(rideId, etaData)
+
+    } catch (error) {
+      console.error('Error sending ETA update notification:', error)
+    }
+  }
+
+  // Send trip share notification
+  static async sendTripShareNotification(shareId: string) {
+    try {
+      const tripShare = await prisma.tripShare.findUnique({
+        where: { id: shareId },
+        include: {
+          ride: {
+            include: {
+              customer: true,
+              driver: {
+                include: {
+                  user: true
+                }
+              }
+            }
+          },
+          user: true
+        }
+      })
+
+      if (!tripShare) {
+        throw new Error('Trip share not found')
+      }
+
+      const shareUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/shared-trip/${tripShare.shareToken}`
+      const message = `${tripShare.user.name} is sharing their ride with you. Track their journey: ${shareUrl}`
+
+      // TODO: Send SMS/email to shared contact
+      console.log(`Trip share notification sent to ${tripShare.contactName} (${tripShare.contactPhone || tripShare.contactEmail})`)
+
+    } catch (error) {
+      console.error('Error sending trip share notification:', error)
+    }
+  }
+
+  // Send call notification
+  static async sendCallNotification(callId: string, event: string) {
+    try {
+      const call = await prisma.rideCall.findUnique({
+        where: { id: callId },
+        include: {
+          caller: true,
+          callee: true,
+          ride: true
+        }
+      })
+
+      if (!call) {
+        throw new Error('Call not found')
+      }
+
+      const eventMessages = {
+        'INITIATED': 'Incoming call',
+        'ANSWERED': 'Call answered',
+        'ENDED': 'Call ended',
+        'MISSED': 'Missed call',
+        'DECLINED': 'Call declined',
+        'FAILED': 'Call failed'
+      }
+
+      const message = eventMessages[event as keyof typeof eventMessages] || 'Call event'
+
+      // Notify callee for incoming calls
+      if (event === 'INITIATED') {
+        await this.sendNotification({
+          userId: call.calleeId,
+          title: 'Incoming Call',
+          body: `${call.caller.name} is calling you`,
+          type: 'incoming_call',
+          rideId: call.rideId,
+          data: {
+            callId,
+            callType: call.callType,
+            callerName: call.caller.name,
+            callerAvatar: call.caller.avatar
+          }
+        })
+      }
+
+      // Send real-time call event
+      RealTimeService.sendCallEvent(call.calleeId, event.toLowerCase(), {
+        callId,
+        event,
+        call
+      })
+
+    } catch (error) {
+      console.error('Error sending call notification:', error)
+    }
+  }
+
+  // Get notification preferences
+  static async getNotificationPreferences(userId: string) {
+    try {
+      let preferences = await prisma.notificationPreferences.findUnique({
+        where: { userId }
+      })
+
+      if (!preferences) {
+        preferences = await prisma.notificationPreferences.create({
+          data: {
+            userId,
+            orderUpdates: true,
+            preparationTime: true,
+            driverAssigned: true,
+            driverLocation: true,
+            deliveryConfirmation: true,
+            promotions: true,
+            email: true,
+            sms: false,
+            push: true,
+            realTimeUpdates: true,
+            digest: false,
+            quietHours: false,
+          }
+        })
+      }
+
+      return preferences
+    } catch (error) {
+      console.error('Error getting notification preferences:', error)
+      throw error
+    }
+  }
+
+  // Update notification preferences
+  static async updateNotificationPreferences(userId: string, updates: any) {
+    try {
+      const preferences = await prisma.notificationPreferences.upsert({
+        where: { userId },
+        create: {
+          userId,
+          ...updates
+        },
+        update: updates
+      })
+
+      return preferences
+    } catch (error) {
+      console.error('Error updating notification preferences:', error)
+      throw error
+    }
+  }
+
+  // Mark notification as read
+  static async markAsRead(notificationId: string, userId: string) {
+    try {
+      await prisma.notification.updateMany({
+        where: {
+          id: notificationId,
+          userId: userId
+        },
+        data: {
+          isRead: true
         }
       })
     } catch (error) {
-      console.error('Error sending push notification:', error)
+      console.error('Error marking notification as read:', error)
+      throw error
     }
   }
 
-  // Send email notification
-  private async sendEmailNotification(notification: NotificationData) {
-    // TODO: Implement email sending
-    console.log('Email notification:', notification)
-  }
+  // Get unread notifications count
+  static async getUnreadCount(userId: string) {
+    try {
+      const count = await prisma.notification.count({
+        where: {
+          userId: userId,
+          isRead: false
+        }
+      })
 
-  // Send SMS notification
-  private async sendSMSNotification(notification: NotificationData) {
-    // TODO: Implement SMS sending
-    console.log('SMS notification:', notification)
-  }
-
-  // Get notification templates for different order events
-  private getOrderNotificationTemplates(type: NotificationType, order: any, customMessage?: string): NotificationData[] {
-    const notifications: NotificationData[] = []
-
-    switch (type) {
-      case 'ORDER_PLACED':
-        notifications.push({
-          type,
-          userId: order.vendor.userId,
-          title: 'New Order Received',
-          message: `You have a new order #${order.orderNumber}`,
-          orderId: order.id
-        })
-        break
-
-      case 'ORDER_CONFIRMED':
-        notifications.push({
-          type,
-          userId: order.customerId,
-          title: 'Order Confirmed',
-          message: customMessage || `Your order #${order.orderNumber} has been confirmed by ${order.vendor.businessName}`,
-          orderId: order.id
-        })
-        break
-
-      case 'ORDER_PREPARING':
-        notifications.push({
-          type,
-          userId: order.customerId,
-          title: 'Order Being Prepared',
-          message: customMessage || `${order.vendor.businessName} is preparing your order #${order.orderNumber}`,
-          orderId: order.id
-        })
-        break
-
-      case 'ORDER_READY':
-        notifications.push({
-          type,
-          userId: order.customerId,
-          title: 'Order Ready',
-          message: customMessage || `Your order #${order.orderNumber} is ready for pickup`,
-          orderId: order.id
-        })
-        break
-
-      case 'DRIVER_ASSIGNED':
-        notifications.push({
-          type,
-          userId: order.customerId,
-          title: 'Driver Assigned',
-          message: `${order.driver?.user?.name || 'A driver'} has been assigned to deliver your order #${order.orderNumber}`,
-          orderId: order.id,
-          data: {
-            driverName: order.driver?.user?.name,
-            driverLocation: order.driver?.locations?.[0]
-          }
-        })
-        break
-
-      case 'ORDER_OUT_FOR_DELIVERY':
-        notifications.push({
-          type,
-          userId: order.customerId,
-          title: 'Order Out for Delivery',
-          message: `Your order #${order.orderNumber} is on the way!`,
-          orderId: order.id
-        })
-        break
-
-      case 'ORDER_DELIVERED':
-        notifications.push({
-          type,
-          userId: order.customerId,
-          title: 'Order Delivered',
-          message: `Your order #${order.orderNumber} has been delivered. Enjoy your meal!`,
-          orderId: order.id
-        })
-        break
-
-      case 'ORDER_CANCELLED':
-        notifications.push({
-          type,
-          userId: order.customerId,
-          title: 'Order Cancelled',
-          message: customMessage || `Your order #${order.orderNumber} has been cancelled`,
-          orderId: order.id
-        })
-        break
+      return count
+    } catch (error) {
+      console.error('Error getting unread count:', error)
+      throw error
     }
+  }
 
-    return notifications
+  // Get user notifications
+  static async getUserNotifications(userId: string, limit: number = 20, offset: number = 0) {
+    try {
+      const notifications = await prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit
+      })
+
+      return notifications
+    } catch (error) {
+      console.error('Error getting user notifications:', error)
+      throw error
+    }
+  }
+
+  // Clean up old notifications
+  static async cleanupOldNotifications(daysOld: number = 30) {
+    try {
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld)
+
+      const result = await prisma.notification.deleteMany({
+        where: {
+          createdAt: {
+            lt: cutoffDate
+          },
+          isRead: true
+        }
+      })
+
+      console.log(`Cleaned up ${result.count} old notifications`)
+      return result.count
+    } catch (error) {
+      console.error('Error cleaning up old notifications:', error)
+      throw error
+    }
   }
 }
-
-// Export singleton instance
-export const notificationService = NotificationService.getInstance()

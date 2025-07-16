@@ -1,7 +1,7 @@
 
 import crypto from 'crypto'
 import { prisma } from './db'
-import { TokenType } from '@prisma/client'
+import { TokenType } from './types'
 
 export class AuthUtils {
   // Generate secure random token

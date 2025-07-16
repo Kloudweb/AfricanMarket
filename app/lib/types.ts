@@ -11,14 +11,106 @@ import {
   DocumentStatus,
   KYCStatus,
   PromoCodeType,
-  DriverAvailabilityStatusType,
   AssignmentStatus,
-  ServiceType,
-  MatchingAlgorithmType
+  PaymentProvider,
+  WalletType,
+  PaymentMethodType,
+  AdminPermissionLevel,
+  DisputeStatus,
+  DisputeType,
+  DisputeCategory,
+  CampaignStatus,
+  CampaignType,
+  SystemSettingType,
+  ComplianceActionType,
+  RevenueReportType,
+  SystemHealthStatus,
+  BulkOperationType,
+  PayoutStatus,
+  PayoutFrequency,
+  CallType,
+  CallStatus,
+  MessageType,
+  TripStatus,
+  TransactionType,
+  RefundStatus,
+  SafetyAlertType,
+  IncidentType,
+  TripShareStatus
 } from "@prisma/client"
 
+// Define missing enums that should be in the schema
+export enum DriverAvailabilityStatusType {
+  AVAILABLE = 'AVAILABLE',
+  BUSY = 'BUSY',
+  OFFLINE = 'OFFLINE',
+  ONLINE = 'ONLINE',
+  ON_BREAK = 'ON_BREAK',
+  BREAK = 'BREAK',
+  EMERGENCY = 'EMERGENCY',
+  MAINTENANCE = 'MAINTENANCE'
+}
+
+export enum ServiceType {
+  DELIVERY = 'DELIVERY',
+  FOOD_DELIVERY = 'FOOD_DELIVERY',
+  RIDESHARE = 'RIDESHARE',
+  BOTH = 'BOTH'
+}
+
+export enum MatchingAlgorithmType {
+  NEAREST_FIRST = 'NEAREST_FIRST',
+  BALANCED = 'BALANCED',
+  PRIORITY_BASED = 'PRIORITY_BASED',
+  PROXIMITY_BASED = 'PROXIMITY_BASED',
+  PERFORMANCE_BASED = 'PERFORMANCE_BASED',
+  HYBRID = 'HYBRID',
+  MACHINE_LEARNING = 'MACHINE_LEARNING'
+}
+
 // Re-export for components
-export type { RideStatus, DriverAvailabilityStatusType, AssignmentStatus, ServiceType, MatchingAlgorithmType } from "@prisma/client"
+export { 
+  UserRole, 
+  OrderStatus,
+  RideStatus, 
+  PaymentStatus,
+  VerificationStatus,
+  TokenType,
+  DocumentType,
+  DocumentStatus,
+  KYCStatus,
+  PromoCodeType,
+  AssignmentStatus, 
+  PaymentProvider,
+  WalletType,
+  PaymentMethodType,
+  AdminPermissionLevel,
+  DisputeStatus,
+  DisputeType,
+  DisputeCategory,
+  CampaignStatus,
+  CampaignType,
+  SystemSettingType,
+  ComplianceActionType,
+  RevenueReportType,
+  SystemHealthStatus,
+  BulkOperationType,
+  PayoutStatus,
+  PayoutFrequency,
+  CallType,
+  CallStatus,
+  MessageType,
+  TripStatus,
+  TransactionType,
+  RefundStatus,
+  SafetyAlertType,
+  IncidentType,
+  TripShareStatus
+} from "@prisma/client"
+
+
+
+// Additional type exports for compatibility - already exported above
 
 export interface User {
   id: string
@@ -1494,4 +1586,1255 @@ export interface AssignmentResponse {
   rejectionReason?: string
   responseTime?: number
   autoAccepted?: boolean
+}
+
+// ============================================================================
+// COMPREHENSIVE REAL-TIME INFRASTRUCTURE TYPES
+// ============================================================================
+
+// WebSocket Connection Management
+export interface WebSocketConnection {
+  id: string
+  userId: string
+  socketId: string
+  userAgent?: string
+  ipAddress?: string
+  connectedAt: Date
+  lastActivity: Date
+  disconnectedAt?: Date
+  isActive: boolean
+  
+  // Connection metadata
+  platform?: string
+  appVersion?: string
+  deviceId?: string
+  deviceType?: string
+  
+  // Real-time rooms
+  rooms: string[]
+  
+  // Performance metrics
+  latency?: number
+  packetsReceived: number
+  packetsSent: number
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Real-time Event Management
+export interface RealTimeEvent {
+  id: string
+  eventType: string
+  eventData: any
+  targetUserId?: string
+  targetRole?: string
+  roomId?: string
+  
+  // Event metadata
+  orderId?: string
+  rideId?: string
+  vendorId?: string
+  driverId?: string
+  customerId?: string
+  
+  // Broadcasting
+  broadcast: boolean
+  priority: string
+  
+  // Delivery tracking
+  sent: boolean
+  sentAt?: Date
+  delivered: boolean
+  deliveredAt?: Date
+  failed: boolean
+  failureReason?: string
+  retryCount: number
+  maxRetries: number
+  
+  // Scheduling
+  scheduleFor?: Date
+  expiresAt?: Date
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Device Token Management
+export interface DeviceToken {
+  id: string
+  userId: string
+  token: string
+  platform: string
+  deviceId?: string
+  deviceName?: string
+  appVersion?: string
+  osVersion?: string
+  
+  // Token status
+  isActive: boolean
+  lastUsed: Date
+  expiresAt?: Date
+  
+  // Notification preferences
+  enabled: boolean
+  categories: string[]
+  
+  // Metadata
+  metadata?: any
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Enhanced Push Notification System
+export interface PushNotificationQueue {
+  id: string
+  userId: string
+  title: string
+  body: string
+  data?: any
+  
+  // Targeting
+  deviceTokens: string[]
+  platforms: string[]
+  
+  // Notification options
+  badge?: number
+  sound?: string
+  category?: string
+  icon?: string
+  image?: string
+  clickAction?: string
+  
+  // Delivery tracking
+  status: string
+  sentAt?: Date
+  deliveredAt?: Date
+  failedAt?: Date
+  failureReason?: string
+  
+  // Analytics
+  clicked: boolean
+  clickedAt?: Date
+  dismissed: boolean
+  dismissedAt?: Date
+  
+  // Scheduling
+  scheduleFor?: Date
+  expiresAt?: Date
+  
+  // Retry logic
+  retryCount: number
+  maxRetries: number
+  nextRetryAt?: Date
+  
+  // Metadata
+  orderId?: string
+  rideId?: string
+  vendorId?: string
+  driverId?: string
+  metadata?: any
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// SMS Notification System
+export interface SmsNotification {
+  id: string
+  userId?: string
+  phoneNumber: string
+  message: string
+  type: string
+  
+  // SMS metadata
+  countryCode?: string
+  carrier?: string
+  messageId?: string
+  
+  // Delivery tracking
+  status: string
+  sentAt?: Date
+  deliveredAt?: Date
+  failedAt?: Date
+  failureReason?: string
+  
+  // Cost tracking
+  cost?: number
+  segments?: number
+  
+  // Scheduling
+  scheduleFor?: Date
+  expiresAt?: Date
+  
+  // Retry logic
+  retryCount: number
+  maxRetries: number
+  nextRetryAt?: Date
+  
+  // Metadata
+  orderId?: string
+  rideId?: string
+  vendorId?: string
+  driverId?: string
+  metadata?: any
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Email Notification System
+export interface EmailNotification {
+  id: string
+  userId?: string
+  email: string
+  subject: string
+  body: string
+  template?: string
+  
+  // Email metadata
+  fromEmail?: string
+  fromName?: string
+  replyTo?: string
+  attachments: string[]
+  
+  // Delivery tracking
+  status: string
+  sentAt?: Date
+  deliveredAt?: Date
+  openedAt?: Date
+  clickedAt?: Date
+  failedAt?: Date
+  failureReason?: string
+  
+  // Email provider data
+  messageId?: string
+  provider?: string
+  
+  // Analytics
+  openCount: number
+  clickCount: number
+  
+  // Scheduling
+  scheduleFor?: Date
+  expiresAt?: Date
+  
+  // Retry logic
+  retryCount: number
+  maxRetries: number
+  nextRetryAt?: Date
+  
+  // Metadata
+  orderId?: string
+  rideId?: string
+  vendorId?: string
+  driverId?: string
+  metadata?: any
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// In-App Notification Center
+export interface InAppNotification {
+  id: string
+  userId: string
+  title: string
+  message: string
+  type: string
+  category?: string
+  
+  // Notification data
+  data?: any
+  imageUrl?: string
+  iconUrl?: string
+  actionUrl?: string
+  actionText?: string
+  
+  // Status tracking
+  isRead: boolean
+  readAt?: Date
+  isStarred: boolean
+  starredAt?: Date
+  isArchived: boolean
+  archivedAt?: Date
+  
+  // Priority and urgency
+  priority: string
+  urgent: boolean
+  
+  // Expiration
+  expiresAt?: Date
+  
+  // Metadata
+  orderId?: string
+  rideId?: string
+  vendorId?: string
+  driverId?: string
+  metadata?: any
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Notification Preferences Management
+export interface NotificationChannel {
+  id: string
+  userId: string
+  
+  // Channel preferences
+  pushEnabled: boolean
+  emailEnabled: boolean
+  smsEnabled: boolean
+  inAppEnabled: boolean
+  
+  // Category preferences
+  orderUpdates: boolean
+  rideUpdates: boolean
+  paymentUpdates: boolean
+  marketingUpdates: boolean
+  systemUpdates: boolean
+  
+  // Timing preferences
+  quietHours: boolean
+  quietStart?: string
+  quietEnd?: string
+  timezone?: string
+  
+  // Frequency preferences
+  realTime: boolean
+  digest: boolean
+  digestFrequency?: string
+  digestTime?: string
+  
+  // Advanced preferences
+  priority: string
+  languages: string[]
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Real-time Order Status Updates
+export interface OrderStatusUpdate {
+  id: string
+  orderId: string
+  previousStatus?: OrderStatus
+  newStatus: OrderStatus
+  message?: string
+  
+  // Update source
+  updatedBy?: string
+  updatedByRole?: string
+  source?: string
+  
+  // Location data
+  latitude?: number
+  longitude?: number
+  address?: string
+  
+  // Timing data
+  estimatedTime?: Date
+  actualTime?: Date
+  
+  // Metadata
+  notes?: string
+  photos: string[]
+  metadata?: any
+  
+  // Broadcasting
+  broadcast: boolean
+  broadcastAt?: Date
+  
+  createdAt: Date
+}
+
+// Real-time Driver Location Tracking
+export interface DriverLocationUpdate {
+  id: string
+  driverId: string
+  latitude: number
+  longitude: number
+  accuracy?: number
+  heading?: number
+  speed?: number
+  altitude?: number
+  
+  // Driver status
+  isOnline: boolean
+  isDelivering: boolean
+  isRiding: boolean
+  
+  // Current assignments
+  currentOrderId?: string
+  currentRideId?: string
+  
+  // Device info
+  deviceId?: string
+  batteryLevel?: number
+  
+  // Location metadata
+  address?: string
+  city?: string
+  province?: string
+  postalCode?: string
+  
+  // Geofence data
+  geofences: string[]
+  
+  // Broadcasting
+  broadcast: boolean
+  broadcastAt?: Date
+  
+  timestamp: Date
+}
+
+// Real-time Chat System
+export interface ChatRoom {
+  id: string
+  type: string
+  participants: string[]
+  
+  // Room metadata
+  name?: string
+  description?: string
+  avatarUrl?: string
+  
+  // Associated records
+  orderId?: string
+  rideId?: string
+  vendorId?: string
+  driverId?: string
+  
+  // Room settings
+  isActive: boolean
+  isPrivate: boolean
+  allowMessages: boolean
+  allowMedia: boolean
+  
+  // Room statistics
+  messageCount: number
+  lastMessageAt?: Date
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface ChatRoomMessage {
+  id: string
+  roomId: string
+  senderId: string
+  message?: string
+  messageType: string
+  
+  // Message data
+  data?: any
+  mediaUrl?: string
+  mediaType?: string
+  mediaSize?: number
+  
+  // Message status
+  isRead: boolean
+  readAt?: Date
+  isEdited: boolean
+  editedAt?: Date
+  isDeleted: boolean
+  deletedAt?: Date
+  
+  // Reply functionality
+  replyToId?: string
+  
+  // Metadata
+  metadata?: any
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Real-time Analytics Events
+export interface AnalyticsEvent {
+  id: string
+  userId?: string
+  sessionId?: string
+  
+  // Event data
+  eventType: string
+  eventCategory?: string
+  eventAction?: string
+  eventLabel?: string
+  eventValue?: number
+  
+  // Page/screen data
+  pageUrl?: string
+  pageTitle?: string
+  referrer?: string
+  
+  // Device/browser data
+  userAgent?: string
+  ipAddress?: string
+  deviceType?: string
+  platform?: string
+  
+  // Location data
+  country?: string
+  city?: string
+  latitude?: number
+  longitude?: number
+  
+  // Custom dimensions
+  customData?: any
+  
+  // Metadata
+  orderId?: string
+  rideId?: string
+  vendorId?: string
+  driverId?: string
+  
+  timestamp: Date
+}
+
+// System Health and Monitoring
+export interface SystemHealth {
+  id: string
+  component: string
+  status: string
+  
+  // Performance metrics
+  responseTime?: number
+  uptime?: number
+  errorRate?: number
+  
+  // Resource usage
+  cpuUsage?: number
+  memoryUsage?: number
+  diskUsage?: number
+  
+  // Service specific metrics
+  activeConnections?: number
+  messagesSent?: number
+  messagesQueued?: number
+  
+  // Metadata
+  details?: any
+  
+  timestamp: Date
+}
+
+// Message Queue for Reliable Delivery
+export interface MessageQueue {
+  id: string
+  queueName: string
+  messageType: string
+  payload: any
+  
+  // Queue management
+  status: string
+  priority: number
+  maxRetries: number
+  retryCount: number
+  
+  // Timing
+  processAt: Date
+  processedAt?: Date
+  completedAt?: Date
+  failedAt?: Date
+  
+  // Error handling
+  error?: string
+  errorDetails?: any
+  
+  // Metadata
+  metadata?: any
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Real-time Inventory Updates
+export interface InventoryUpdate {
+  id: string
+  productId: string
+  vendorId: string
+  
+  // Stock changes
+  previousStock: number
+  newStock: number
+  changeAmount: number
+  changeType: string
+  
+  // Update source
+  orderId?: string
+  userId?: string
+  source?: string
+  
+  // Broadcasting
+  broadcast: boolean
+  broadcastAt?: Date
+  
+  // Metadata
+  notes?: string
+  metadata?: any
+  
+  createdAt: Date
+}
+
+// Real-time Pricing Updates
+export interface PricingUpdate {
+  id: string
+  productId: string
+  vendorId: string
+  
+  // Price changes
+  previousPrice: number
+  newPrice: number
+  changeAmount: number
+  changePercent: number
+  
+  // Update source
+  userId?: string
+  source?: string
+  reason?: string
+  
+  // Timing
+  effectiveFrom: Date
+  effectiveUntil?: Date
+  
+  // Broadcasting
+  broadcast: boolean
+  broadcastAt?: Date
+  
+  // Metadata
+  notes?: string
+  metadata?: any
+  
+  createdAt: Date
+}
+
+// Real-time Notification Types
+export interface NotificationPayload {
+  userId: string
+  title: string
+  body: string
+  type: string
+  data?: any
+  urgent?: boolean
+  orderId?: string
+  rideId?: string
+  vendorId?: string
+  driverId?: string
+}
+
+export interface FCMNotificationPayload {
+  token: string
+  notification: {
+    title: string
+    body: string
+    image?: string
+  }
+  data?: Record<string, string>
+  android?: {
+    priority?: 'normal' | 'high'
+    notification?: {
+      icon?: string
+      color?: string
+      sound?: string
+      tag?: string
+      click_action?: string
+    }
+  }
+  apns?: {
+    payload?: {
+      aps?: {
+        alert?: {
+          title?: string
+          body?: string
+        }
+        badge?: number
+        sound?: string
+        category?: string
+        'content-available'?: number
+      }
+    }
+  }
+  webpush?: {
+    headers?: Record<string, string>
+    data?: Record<string, string>
+    notification?: {
+      title?: string
+      body?: string
+      icon?: string
+      badge?: string
+      image?: string
+      vibrate?: number[]
+      timestamp?: number
+      actions?: Array<{
+        action: string
+        title: string
+        icon?: string
+      }>
+    }
+  }
+}
+
+// WebSocket Event Types
+export interface WebSocketEvent {
+  type: string
+  data: any
+  timestamp: Date
+  userId?: string
+  roomId?: string
+  priority?: string
+}
+
+// Real-time Connection Stats
+export interface ConnectionStats {
+  totalConnections: number
+  uniqueUsers: number
+  activeRooms: number
+  connectedUsers: string[]
+  activeRoomIds: string[]
+  userConnections: Array<{
+    userId: string
+    connectionCount: number
+    lastActivity: number
+  }>
+}
+
+// Real-time Event Handlers
+export interface EventHandler {
+  event: string
+  handler: (data: any, socket: any) => void
+  middleware?: ((socket: any, next: (err?: Error) => void) => void)[]
+}
+
+// Real-time Service Configuration
+export interface RealTimeConfig {
+  port: number
+  cors: {
+    origin: string[]
+    methods: string[]
+    credentials: boolean
+  }
+  rateLimiting: {
+    windowMs: number
+    maxRequests: number
+  }
+  heartbeat: {
+    interval: number
+    timeout: number
+  }
+  rooms: {
+    maxSize: number
+    cleanupInterval: number
+  }
+}
+
+// Notification Template Types
+export interface NotificationTemplate {
+  id: string
+  name: string
+  type: string
+  category: string
+  subject?: string
+  body: string
+  variables: string[]
+  channels: string[]
+  isActive: boolean
+  metadata?: any
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Notification Delivery Status
+export interface DeliveryStatus {
+  channel: string
+  status: string
+  sentAt?: Date
+  deliveredAt?: Date
+  failedAt?: Date
+  failureReason?: string
+  retryCount: number
+  cost?: number
+}
+
+// Admin-specific interfaces
+export interface AdminPermission {
+  id: string
+  userId: string
+  level: AdminPermissionLevel
+  permissions: string[]
+  canManageUsers: boolean
+  canManageOrders: boolean
+  canManageVendors: boolean
+  canManageDrivers: boolean
+  canViewReports: boolean
+  canManageSettings: boolean
+  canManageDisputes: boolean
+  canAccessFinancials: boolean
+  canManageCampaigns: boolean
+  canViewAuditLogs: boolean
+  canBulkOperations: boolean
+  canSystemHealth: boolean
+  ipWhitelist: string[]
+  isActive: boolean
+  expiresAt?: Date
+  createdAt: Date
+  updatedAt: Date
+  createdBy?: string
+  updatedBy?: string
+  user: User
+}
+
+export interface AdminAuditLog {
+  id: string
+  userId: string
+  action: string
+  resource?: string
+  resourceId?: string
+  oldValues?: any
+  newValues?: any
+  description?: string
+  ipAddress?: string
+  userAgent?: string
+  method?: string
+  endpoint?: string
+  statusCode?: number
+  duration?: number
+  metadata?: any
+  timestamp: Date
+  user: User
+}
+
+export interface AdminSession {
+  id: string
+  userId: string
+  sessionToken: string
+  ipAddress: string
+  userAgent?: string
+  location?: string
+  device?: string
+  browser?: string
+  isActive: boolean
+  lastActivity: Date
+  expiresAt: Date
+  createdAt: Date
+  user: User
+}
+
+export interface Dispute {
+  id: string
+  disputeNumber: string
+  type: DisputeType
+  category: DisputeCategory
+  status: DisputeStatus
+  priority: number
+  subject: string
+  description: string
+  evidence: string[]
+  metadata?: any
+  
+  // Involved parties
+  customerId?: string
+  vendorId?: string
+  driverId?: string
+  orderId?: string
+  rideId?: string
+  
+  // Resolution details
+  resolution?: string
+  resolutionNotes?: string
+  refundAmount?: number
+  compensationAmount?: number
+  
+  // Tracking
+  reportedAt: Date
+  acknowledgedAt?: Date
+  resolvedAt?: Date
+  closedAt?: Date
+  escalatedAt?: Date
+  
+  // Assignment
+  assignedTo?: string
+  assignedAt?: Date
+  
+  createdAt: Date
+  updatedAt: Date
+  
+  // Relations
+  customer?: User
+  vendor?: Vendor
+  driver?: Driver
+  order?: Order
+  ride?: Ride
+  assignee?: User
+  reviews: DisputeReview[]
+}
+
+export interface DisputeReview {
+  id: string
+  disputeId: string
+  reviewerId: string
+  action: string
+  comment?: string
+  evidence: string[]
+  internalNotes?: string
+  timeSpent?: number
+  createdAt: Date
+  dispute: Dispute
+  reviewer: User
+}
+
+export interface SystemSetting {
+  id: string
+  key: string
+  value?: string
+  type: SystemSettingType
+  category: string
+  description?: string
+  isPublic: boolean
+  isEditable: boolean
+  validationRules?: any
+  metadata?: any
+  createdAt: Date
+  updatedAt: Date
+  createdBy?: string
+  updatedBy?: string
+  creator?: User
+  updater?: User
+}
+
+export interface PromotionalCampaign {
+  id: string
+  name: string
+  description?: string
+  type: CampaignType
+  status: CampaignStatus
+  
+  // Discount details
+  discountType?: string
+  discountValue?: number
+  minimumOrderAmount?: number
+  maximumDiscountAmount?: number
+  
+  // Targeting
+  targetAudience: string[]
+  targetUserRoles: UserRole[]
+  targetLocations: string[]
+  targetVendors: string[]
+  targetProducts: string[]
+  
+  // Scheduling
+  scheduledStart?: Date
+  scheduledEnd?: Date
+  actualStart?: Date
+  actualEnd?: Date
+  
+  // Usage limits
+  totalUsageLimit?: number
+  perUserUsageLimit?: number
+  currentUsageCount: number
+  
+  // Budget
+  budget?: number
+  currentSpend: number
+  costPerUsage?: number
+  
+  // Analytics
+  impressions: number
+  clicks: number
+  conversions: number
+  revenue: number
+  
+  // Auto-generated promo code
+  promoCode?: string
+  
+  // Metadata
+  metadata?: any
+  createdAt: Date
+  updatedAt: Date
+  createdBy: string
+  updatedBy?: string
+  creator: User
+  updater?: User
+}
+
+export interface RevenueReport {
+  id: string
+  type: RevenueReportType
+  period: string
+  startDate: Date
+  endDate: Date
+  
+  // Revenue breakdown
+  totalRevenue: number
+  orderRevenue: number
+  deliveryRevenue: number
+  rideRevenue: number
+  
+  // Commission breakdown
+  vendorCommission: number
+  driverCommission: number
+  platformRevenue: number
+  
+  // Volume metrics
+  totalOrders: number
+  totalRides: number
+  totalUsers: number
+  activeVendors: number
+  activeDrivers: number
+  
+  // Performance metrics
+  avgOrderValue: number
+  avgRideValue: number
+  customerRetention: number
+  
+  // Costs
+  operatingCosts: number
+  marketingCosts: number
+  paymentFees: number
+  refunds: number
+  
+  // Profit
+  grossProfit: number
+  netProfit: number
+  profitMargin: number
+  
+  // Detailed data
+  data?: any
+  metadata?: any
+  
+  generatedAt: Date
+  generatedBy: string
+  generator: User
+}
+
+export interface ComplianceAction {
+  id: string
+  type: ComplianceActionType
+  targetType: string
+  targetId: string
+  reason: string
+  description?: string
+  severity: string
+  evidence: string[]
+  
+  // Action details
+  actionTaken?: string
+  effectiveDate?: Date
+  expirationDate?: Date
+  
+  // Financial impact
+  fineAmount?: number
+  refundAmount?: number
+  
+  // Follow-up
+  followUpRequired: boolean
+  followUpDate?: Date
+  followUpNotes?: string
+  
+  // Status
+  isActive: boolean
+  isAppealed: boolean
+  appealNotes?: string
+  
+  // Metadata
+  metadata?: any
+  createdAt: Date
+  updatedAt: Date
+  createdBy: string
+  updatedBy?: string
+  creator: User
+}
+
+export interface AdminNotification {
+  id: string
+  title: string
+  message: string
+  type: string
+  priority: string
+  category: string
+  
+  // Targeting
+  targetRoles: AdminPermissionLevel[]
+  targetUsers: string[]
+  
+  // Status
+  isRead: boolean
+  isArchived: boolean
+  expiresAt?: Date
+  
+  // Actions
+  actionRequired: boolean
+  actionUrl?: string
+  actionLabel?: string
+  
+  // Metadata
+  metadata?: any
+  createdAt: Date
+  readAt?: Date
+}
+
+export interface BulkOperation {
+  id: string
+  type: BulkOperationType
+  name: string
+  description?: string
+  
+  // Target data
+  targetType: string
+  targetCriteria?: any
+  targetIds: string[]
+  
+  // Operation details
+  operation: string
+  operationData?: any
+  
+  // Status
+  status: string
+  progress: number
+  totalRecords: number
+  processedRecords: number
+  successCount: number
+  errorCount: number
+  
+  // Results
+  results?: any
+  errors?: any
+  summary?: string
+  
+  // Scheduling
+  scheduledAt?: Date
+  startedAt?: Date
+  completedAt?: Date
+  
+  // Metadata
+  metadata?: any
+  createdAt: Date
+  createdBy: string
+  creator: User
+}
+
+export interface SystemHealth {
+  id: string
+  service: string
+  status: SystemHealthStatus
+  
+  // Metrics
+  responseTime?: number
+  errorRate?: number
+  uptime?: number
+  cpuUsage?: number
+  memoryUsage?: number
+  diskUsage?: number
+  
+  // Details
+  message?: string
+  details?: any
+  metadata?: any
+  
+  // Alerting
+  alertSent: boolean
+  alertSentAt?: Date
+  resolvedAt?: Date
+  
+  timestamp: Date
+}
+
+export interface CommissionStructure {
+  id: string
+  name: string
+  description?: string
+  
+  // Applicability
+  serviceType: string
+  entityType: string
+  entityId?: string
+  
+  // Commission rates
+  baseRate: number
+  tieredRates?: any
+  
+  // Conditions
+  minimumOrder?: number
+  maximumOrder?: number
+  timeBasedRates?: any
+  locationRates?: any
+  
+  // Validity
+  isActive: boolean
+  validFrom: Date
+  validUntil?: Date
+  
+  // Metadata
+  metadata?: any
+  createdAt: Date
+  updatedAt: Date
+  createdBy: string
+  updatedBy?: string
+  creator: User
+}
+
+// Admin dashboard specific types
+export interface AdminDashboardStats {
+  totalUsers: number
+  totalOrders: number
+  totalRevenue: number
+  totalDisputes: number
+  recentActivity: AdminAuditLog[]
+  systemHealth: SystemHealth[]
+  pendingReviews: number
+  activeAlerts: number
+}
+
+export interface AdminUserFilters {
+  role?: UserRole
+  isActive?: boolean
+  isVerified?: boolean
+  dateRange?: {
+    start: Date
+    end: Date
+  }
+  searchTerm?: string
+}
+
+export interface AdminOrderFilters {
+  status?: OrderStatus
+  vendorId?: string
+  driverId?: string
+  dateRange?: {
+    start: Date
+    end: Date
+  }
+  searchTerm?: string
+}
+
+export interface AdminDisputeFilters {
+  status?: DisputeStatus
+  type?: DisputeType
+  category?: DisputeCategory
+  assignedTo?: string
+  dateRange?: {
+    start: Date
+    end: Date
+  }
+  searchTerm?: string
+}
+
+export interface AdminRevenueFilters {
+  type?: RevenueReportType
+  period?: string
+  dateRange?: {
+    start: Date
+    end: Date
+  }
+}
+
+export interface AdminCampaignFilters {
+  status?: CampaignStatus
+  type?: CampaignType
+  dateRange?: {
+    start: Date
+    end: Date
+  }
+  searchTerm?: string
 }

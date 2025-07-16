@@ -1,7 +1,7 @@
 generator client {
     provider = "prisma-client-js"
     binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
-    output = "/home/ubuntu/africanmarket/app/node_modules/.prisma/client"
+    output = "/home/ubuntu/africanmarket/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -41,6 +41,10 @@ enum PaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+  CANCELLED
+  DISPUTED
+  CHARGEBACK
+  PARTIALLY_REFUNDED
 }
 
 enum VerificationStatus {
@@ -140,6 +144,61 @@ model User {
   rideRequests       RideRequest[]
   savedLocations     SavedLocation[]
   rideSchedules      RideSchedule[]
+  
+  // Ride Experience relations
+  rideChatSender     RideChat[] @relation("RideChatSender")
+  rideChatReceiver   RideChat[] @relation("RideChatReceiver")
+  rideCallCaller     RideCall[] @relation("RideCallCaller")
+  rideCallCallee     RideCall[] @relation("RideCallCallee")
+  tripShares         TripShare[]
+  emergencyContacts  EmergencyContact[]
+  safetyAlerts       SafetyAlert[]
+  safetyIncidents    SafetyIncident[]
+  communicationPreference CommunicationPreference?
+  
+  // Push notification relations
+  pushSubscriptions    PushSubscription[]
+  scheduledNotifications ScheduledNotification[]
+  
+  // Payment system relations
+  paymentMethods        PaymentMethod[]
+  paymentAccounts       PaymentAccount[]
+  payouts               Payout[]
+  payoutSchedule        PayoutSchedule?
+  transactions          Transaction[]
+  digitalWallet         DigitalWallet?
+  loyaltyPoints         LoyaltyPoints?
+  recurringPayments     RecurringPayment[]
+  paymentAudits         PaymentAudit[]
+  fraudDetections       FraudDetection[]
+  paymentCompliance     PaymentCompliance?
+  
+  // Real-time infrastructure relations
+  websocketConnections    WebSocketConnection[]
+  deviceTokens           DeviceToken[]
+  pushNotificationQueue  PushNotificationQueue[]
+  smsNotifications       SmsNotification[]
+  emailNotifications     EmailNotification[]
+  inAppNotifications     InAppNotification[]
+  notificationChannels   NotificationChannel?
+  chatRoomMessages       ChatRoomMessage[]
+  analyticsEvents        AnalyticsEvent[]
+  
+  // Admin relations
+  adminPermissions       AdminPermission[]
+  adminAuditLogs         AdminAuditLog[]
+  adminSessions          AdminSession[]
+  disputeReviews         DisputeReview[]
+  systemSettingsCreated  SystemSetting[] @relation("SystemSettingCreator")
+  systemSettingsUpdated SystemSetting[] @relation("SystemSettingUpdater")
+  campaignCreated        PromotionalCampaign[] @relation("CampaignCreator")
+  campaignUpdated        PromotionalCampaign[] @relation("CampaignUpdater")
+  revenueReports         RevenueReport[]
+  complianceActions      ComplianceAction[]
+  customerDisputes       Dispute[] @relation("CustomerDisputes")
+  assignedDisputes       Dispute[] @relation("AssignedDisputes")
+  bulkOperations         BulkOperation[]
+  commissionStructures   CommissionStructure[]
 }
 
 model Account {
@@ -282,6 +341,13 @@ model Vendor {
   preparationTimes PreparationTime[]
   geofences       Geofence[]
   
+  // Real-time infrastructure relations
+  inventoryUpdates       InventoryUpdate[]
+  pricingUpdates         PricingUpdate[]
+  
+  // Admin relations
+  disputes               Dispute[]
+  
   @@index([isActive, verificationStatus])
   @@index([isFeatured, popularityScore])
   @@index([businessName, businessType])
@@ -359,6 +425,10 @@ model Product {
   // Shopping Cart relations
   cartItems       CartItem[]
   vendorOrderItems VendorOrderItem[]
+  
+  // Real-time infrastructure relations
+  inventoryUpdates       InventoryUpdate[]
+  pricingUpdates         PricingUpdate[]
   
   @@index([vendorId])
   @@index([categoryId])
@@ -441,6 +511,28 @@ model Driver {
   hasInsulatedBag       Boolean            @default(false)
   hasGpsDevice          Boolean            @default(false)
   
+  // Enhanced availability settings
+  availabilityMode      String             @default("ONLINE")  // ONLINE, OFFLINE, BREAK, MAINTENANCE
+  lastAvailabilityChange DateTime?
+  availabilitySchedule  Json?              // Weekly schedule
+  maxDailyHours         Int?               @default(12)
+  maxWeeklyHours        Int?               @default(60)
+  breakDuration         Int?               @default(15)       // minutes
+  
+  // Notification preferences
+  notificationSound     Boolean            @default(true)
+  notificationVibration Boolean            @default(true)
+  notificationRadius    Float?             @default(5)        // km
+  quietHoursStart       String?            // "22:00"
+  quietHoursEnd         String?            // "06:00"
+  
+  // Performance metrics
+  acceptanceRate        Float              @default(0)
+  rejectionRate         Float              @default(0)
+  completionRate        Float              @default(0)
+  avgResponseTime       Int                @default(0)       // seconds
+  avgDeliveryTime       Int                @default(0)       // minutes
+  
   // Profile completion
   profileCompletionScore Int               @default(0) // 0-100
   onboardingCompleted   Boolean            @default(false)
@@ -478,6 +570,25 @@ model Driver {
   connectionStatus DriverConnectionStatus[]
   geofenceStatus   DriverGeofenceStatus[]
   matchingAssignments MatchingAssignment[]
+  
+  // Ride Experience relations
+  tripTracking     TripTracking[]
+  speedMonitoring  SpeedMonitoring[]
+  
+  // New comprehensive driver features
+  availabilityHistory DriverAvailabilityHistory[]
+  requestNotifications DriverRequestNotification[]
+  navigationHistory  DriverNavigationHistory[]
+  earningsAnalytics  DriverEarningsAnalytics[]
+  deliveryPhotos     DriverDeliveryPhoto[]
+  driverSettings     DriverSettings?
+  deviceInfo         DriverDeviceInfo[]
+  
+  // Real-time infrastructure relations
+  locationUpdates        DriverLocationUpdate[]
+  
+  // Admin relations
+  disputes               Dispute[]
 }
 
 model Order {
@@ -531,6 +642,17 @@ model Order {
   assignmentHistory     DriverAssignmentHistory[]
   matchingAssignments   MatchingAssignment[]
   reassignmentQueue     ReassignmentQueue[]
+  
+  // New comprehensive driver features relations
+  driverRequestNotifications DriverRequestNotification[]
+  driverNavigationHistory DriverNavigationHistory[]
+  driverDeliveryPhotos DriverDeliveryPhoto[]
+  
+  // Real-time infrastructure relations
+  statusUpdates          OrderStatusUpdate[]
+  
+  // Admin relations
+  disputes               Dispute[]
 }
 
 model OrderItem {
@@ -607,33 +729,116 @@ model Ride {
   matchingAssignments   MatchingAssignment[]
   reassignmentQueue     ReassignmentQueue[]
   
+  // Ride Experience relations
+  rideChats       RideChat[]
+  rideCalls       RideCall[]
+  tripTracking    TripTracking[]
+  tripETAs        TripETA[]
+  tripRoutes      TripRoute[]
+  tripShares      TripShare[]
+  safetyAlerts    SafetyAlert[]
+  speedMonitoring SpeedMonitoring[]
+  safetyIncidents SafetyIncident[]
+  tripAnalytics   TripAnalytics?
+  
+  // New comprehensive driver features relations
+  driverRequestNotifications DriverRequestNotification[]
+  driverNavigationHistory DriverNavigationHistory[]
+  
+  // Admin relations
+  disputes               Dispute[]
+  
   @@index([customerId, createdAt])
   @@index([driverId, createdAt])
   @@index([status, createdAt])
   @@index([isScheduled, scheduledFor])
 }
 
+// Enhanced Payment Model
 model Payment {
   id                String        @id @default(cuid())
+  paymentNumber     String        @unique
   userId            String
   orderId           String?       @unique
   rideId            String?       @unique
   amount            Float
   currency          String        @default("CAD")
   status            PaymentStatus @default(PENDING)
-  paymentMethod     String
+  paymentMethodId   String?
+  paymentProvider   PaymentProvider
+  
+  // External payment IDs
   stripePaymentId   String?
+  stripeChargeId    String?
+  squarePaymentId   String?
   paypalPaymentId   String?
-  platformFee       Float
+  externalId        String?       // Generic external ID
+  
+  // Payment breakdown
+  subtotal          Float
+  tax               Float         @default(0)
+  tips              Float         @default(0)
+  platformFee       Float         @default(0)
+  processingFee     Float         @default(0)
   vendorAmount      Float?
   driverAmount      Float?
+  
+  // Payment details
+  description       String?
+  paymentMethod     String        // "card", "wallet", "bank_transfer", etc.
+  last4             String?       // Last 4 digits of card
+  brand             String?       // "visa", "mastercard", etc.
+  
+  // 3D Secure and verification
+  requiresAction    Boolean       @default(false)
+  clientSecret      String?       // For client-side confirmation
+  verificationUrl   String?
+  
+  // Fraud and risk
+  riskScore         Float?
+  fraudStatus       String?       // "pass", "review", "block"
+  
+  // Timing
+  authorizedAt      DateTime?
+  capturedAt        DateTime?
+  failedAt          DateTime?
+  cancelledAt       DateTime?
+  
+  // Failure handling
+  failureReason     String?
+  failureCode       String?
+  retryCount        Int           @default(0)
+  maxRetries        Int           @default(3)
+  
+  // Metadata
+  metadata          Json?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
   // Relations
-  user  User   @relation(fields: [userId], references: [id])
-  order Order? @relation(fields: [orderId], references: [id])
-  ride  Ride?  @relation(fields: [rideId], references: [id])
+  user              User          @relation(fields: [userId], references: [id])
+  order             Order?        @relation(fields: [orderId], references: [id])
+  ride              Ride?         @relation(fields: [rideId], references: [id])
+  paymentMethodObj  PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  attempts          PaymentAttempt[]
+  splits            PaymentSplit[]
+  transactions      Transaction[]
+  refunds           Refund[]
+  disputes          PaymentDispute[]
+  webhooks          PaymentWebhook[]
+  audits            PaymentAudit[]
+  cryptoPayments    CryptocurrencyPayment[]
+  recurringInvoices RecurringPaymentInvoice[]
+  fraudDetections   FraudDetection[]
+  
+  @@index([userId])
+  @@index([orderId])
+  @@index([rideId])
+  @@index([status])
+  @@index([paymentProvider])
+  @@index([createdAt])
+  @@index([stripePaymentId])
+  @@index([squarePaymentId])
 }
 
 model Review {
@@ -871,6 +1076,7 @@ model DriverShift {
 
   // Relations
   driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  earningsAnalytics DriverEarningsAnalytics[]
   
   @@index([driverId, startTime])
 }
@@ -2529,3 +2735,3343 @@ model SystemPerformanceMetrics {
   
   @@index([timestamp])
 }
+
+// ========================================
+// RIDE EXPERIENCE MODELS
+// ========================================
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VOICE
+  LOCATION
+  SYSTEM
+  QUICK_REPLY
+  STICKER
+  DOCUMENT
+}
+
+enum CallType {
+  VOICE
+  VIDEO
+}
+
+enum CallStatus {
+  INITIATED
+  RINGING
+  ANSWERED
+  ENDED
+  MISSED
+  DECLINED
+  FAILED
+}
+
+enum TripStatus {
+  PENDING
+  DRIVER_ASSIGNED
+  DRIVER_ARRIVING
+  DRIVER_ARRIVED
+  PASSENGER_PICKED_UP
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum SafetyAlertType {
+  PANIC_BUTTON
+  ROUTE_DEVIATION
+  SPEED_VIOLATION
+  UNUSUAL_STOP
+  EMERGENCY_CONTACT
+  DRIVER_DISTRESS
+  PASSENGER_DISTRESS
+  AUTOMATIC_DETECTION
+}
+
+enum IncidentType {
+  ACCIDENT
+  HARASSMENT
+  UNSAFE_DRIVING
+  ROUTE_DEVIATION
+  UNAUTHORIZED_STOP
+  VEHICLE_BREAKDOWN
+  CUSTOMER_COMPLAINT
+  DRIVER_COMPLAINT
+  EMERGENCY_SITUATION
+}
+
+enum TripShareStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+// Enhanced ride chat system
+model RideChat {
+  id              String      @id @default(cuid())
+  rideId          String
+  senderId        String
+  receiverId      String
+  message         String?
+  messageType     MessageType @default(TEXT)
+  attachmentUrl   String?
+  thumbnailUrl    String?
+  voiceDuration   Int?        // in seconds
+  locationLat     Float?
+  locationLng     Float?
+  locationAddress String?
+  quickReplyId    String?
+  
+  // Message status
+  isRead          Boolean     @default(false)
+  readAt          DateTime?
+  isDelivered     Boolean     @default(false)
+  deliveredAt     DateTime?
+  isFailed        Boolean     @default(false)
+  failedAt        DateTime?
+  
+  // Translation support
+  originalLanguage String?
+  translatedMessage String?
+  translatedLanguage String?
+  
+  // Moderation
+  isModerated     Boolean     @default(false)
+  moderationResult String?
+  isFiltered      Boolean     @default(false)
+  
+  // Metadata
+  metadata        Json?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  ride            Ride        @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  sender          User        @relation("RideChatSender", fields: [senderId], references: [id])
+  receiver        User        @relation("RideChatReceiver", fields: [receiverId], references: [id])
+  
+  @@index([rideId, createdAt])
+  @@index([senderId, receiverId])
+  @@index([isRead, readAt])
+}
+
+// Voice and video call management
+model RideCall {
+  id            String      @id @default(cuid())
+  rideId        String
+  callerId      String
+  calleeId      String
+  callType      CallType
+  status        CallStatus  @default(INITIATED)
+  
+  // Call details
+  duration      Int?        // in seconds
+  startedAt     DateTime?
+  answeredAt    DateTime?
+  endedAt       DateTime?
+  
+  // Call quality
+  quality       Float?      // 1-5 rating
+  networkQuality String?    // EXCELLENT, GOOD, FAIR, POOR
+  
+  // Recording (if enabled)
+  isRecorded    Boolean     @default(false)
+  recordingUrl  String?
+  
+  // Metadata
+  metadata      Json?
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relations
+  ride          Ride        @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  caller        User        @relation("RideCallCaller", fields: [callerId], references: [id])
+  callee        User        @relation("RideCallCallee", fields: [calleeId], references: [id])
+  
+  @@index([rideId, createdAt])
+  @@index([status, createdAt])
+}
+
+// Real-time trip tracking
+model TripTracking {
+  id              String      @id @default(cuid())
+  rideId          String
+  driverId        String
+  
+  // Location data
+  latitude        Float
+  longitude       Float
+  heading         Float?      // Direction in degrees
+  speed           Float?      // Speed in km/h
+  altitude        Float?
+  accuracy        Float?      // GPS accuracy in meters
+  
+  // Trip context
+  tripStatus      TripStatus
+  distanceTraveled Float?     // in km
+  timeElapsed     Int?        // in seconds
+  
+  // Route information
+  currentAddress  String?
+  nextWaypoint    String?
+  distanceToDestination Float? // in km
+  
+  // Battery and connectivity
+  batteryLevel    Int?
+  connectionType  String?     // WIFI, CELLULAR, OFFLINE
+  signalStrength  Int?
+  
+  // Metadata
+  metadata        Json?
+  
+  timestamp       DateTime    @default(now())
+  
+  // Relations
+  ride            Ride        @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  driver          Driver      @relation(fields: [driverId], references: [id])
+  
+  @@index([rideId, timestamp])
+  @@index([driverId, timestamp])
+  @@index([tripStatus])
+}
+
+// Dynamic ETA calculation and updates
+model TripETA {
+  id                String      @id @default(cuid())
+  rideId            String
+  
+  // ETA information
+  estimatedArrival  DateTime
+  originalETA       DateTime?
+  etaChangeMinutes  Int?        // Difference from original ETA
+  
+  // Calculation factors
+  distanceRemaining Float       // in km
+  timeRemaining     Int         // in seconds
+  currentSpeed      Float?      // in km/h
+  trafficCondition  String?     // LIGHT, MODERATE, HEAVY, SEVERE
+  weatherCondition  String?     // CLEAR, RAIN, SNOW, FOG
+  
+  // Accuracy metrics
+  confidence        Float?      // 0-1 confidence score
+  varianceRange     Int?        // ±minutes
+  
+  // Calculation method
+  calculationMethod String?     // REALTIME, HISTORICAL, HYBRID, ML
+  dataSource        String?     // GPS, TRAFFIC_API, USER_INPUT
+  
+  // Metadata
+  metadata          Json?
+  
+  createdAt         DateTime    @default(now())
+  
+  // Relations
+  ride              Ride        @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  
+  @@index([rideId, createdAt])
+  @@index([estimatedArrival])
+}
+
+// Trip route and waypoints
+model TripRoute {
+  id            String      @id @default(cuid())
+  rideId        String
+  
+  // Route information
+  routeData     Json        // Complete route from mapping service
+  totalDistance Float       // in km
+  totalDuration Int         // in seconds
+  
+  // Route optimization
+  isOptimized   Boolean     @default(false)
+  optimizedAt   DateTime?
+  
+  // Route status
+  isActive      Boolean     @default(true)
+  isCompleted   Boolean     @default(false)
+  
+  // Alternative routes
+  alternativeRoutes Json?
+  
+  // Metadata
+  metadata      Json?
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relations
+  ride          Ride        @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  waypoints     TripWaypoint[]
+  
+  @@index([rideId])
+  @@index([isActive, isCompleted])
+}
+
+// Turn-by-turn navigation waypoints
+model TripWaypoint {
+  id            String      @id @default(cuid())
+  routeId       String
+  
+  // Waypoint information
+  sequence      Int         // Order in route
+  latitude      Float
+  longitude     Float
+  address       String?
+  
+  // Navigation instruction
+  instruction   String?
+  maneuver      String?     // TURN_LEFT, TURN_RIGHT, STRAIGHT, etc.
+  distance      Float?      // Distance to this waypoint in km
+  duration      Int?        // Time to this waypoint in seconds
+  
+  // Waypoint status
+  isCompleted   Boolean     @default(false)
+  completedAt   DateTime?
+  
+  // Metadata
+  metadata      Json?
+  
+  createdAt     DateTime    @default(now())
+  
+  // Relations
+  route         TripRoute   @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  
+  @@index([routeId, sequence])
+  @@index([isCompleted])
+}
+
+// Trip sharing with contacts
+model TripShare {
+  id            String          @id @default(cuid())
+  rideId        String
+  sharedBy      String          // Customer ID
+  sharedWith    String          // Contact phone/email
+  contactName   String?
+  contactPhone  String?
+  contactEmail  String?
+  
+  // Sharing details
+  status        TripShareStatus @default(ACTIVE)
+  shareToken    String          @unique
+  isPublic      Boolean         @default(false)
+  
+  // Sharing permissions
+  shareLocation Boolean         @default(true)
+  shareETA      Boolean         @default(true)
+  shareDriver   Boolean         @default(true)
+  shareRoute    Boolean         @default(true)
+  
+  // Expiration
+  expiresAt     DateTime?
+  
+  // Notification settings
+  notifyUpdates Boolean         @default(true)
+  notifyArrival Boolean         @default(true)
+  notifyCompletion Boolean      @default(true)
+  
+  // Metadata
+  metadata      Json?
+  
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  // Relations
+  ride          Ride            @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  user          User            @relation(fields: [sharedBy], references: [id])
+  
+  @@index([rideId, status])
+  @@index([shareToken])
+  @@index([sharedBy])
+}
+
+// Emergency contacts management
+model EmergencyContact {
+  id            String      @id @default(cuid())
+  userId        String
+  
+  // Contact information
+  name          String
+  phone         String
+  email         String?
+  relationship  String?     // FAMILY, FRIEND, COLLEAGUE, etc.
+  
+  // Priority and settings
+  priority      Int         @default(1) // 1=highest priority
+  isActive      Boolean     @default(true)
+  isPrimary     Boolean     @default(false)
+  
+  // Notification preferences
+  notifyTrips   Boolean     @default(false)
+  notifyEmergency Boolean   @default(true)
+  notifyLate    Boolean     @default(true)
+  
+  // Metadata
+  metadata      Json?
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relations
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emergencyAlerts SafetyAlert[]
+  
+  @@index([userId, priority])
+  @@index([isPrimary])
+}
+
+// Safety alerts and panic button
+model SafetyAlert {
+  id                String          @id @default(cuid())
+  rideId            String
+  triggeredBy       String          // User ID
+  alertType         SafetyAlertType
+  
+  // Alert details
+  severity          String          @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  message           String?
+  location          String?
+  latitude          Float?
+  longitude         Float?
+  
+  // Response status
+  isResolved        Boolean         @default(false)
+  resolvedAt        DateTime?
+  resolvedBy        String?
+  resolution        String?
+  
+  // Emergency contact notification
+  emergencyContactId String?
+  notificationSent  Boolean         @default(false)
+  notificationSentAt DateTime?
+  
+  // Authorities notification
+  authoritiesNotified Boolean       @default(false)
+  authoritiesNotifiedAt DateTime?
+  incidentNumber    String?
+  
+  // Audio/video recording
+  hasRecording      Boolean         @default(false)
+  recordingUrl      String?
+  recordingDuration Int?            // in seconds
+  
+  // Metadata
+  metadata          Json?
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // Relations
+  ride              Ride            @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [triggeredBy], references: [id])
+  emergencyContact  EmergencyContact? @relation(fields: [emergencyContactId], references: [id])
+  
+  @@index([rideId, alertType])
+  @@index([triggeredBy, createdAt])
+  @@index([severity, isResolved])
+}
+
+// Speed monitoring and violations
+model SpeedMonitoring {
+  id            String      @id @default(cuid())
+  rideId        String
+  driverId      String
+  
+  // Speed data
+  currentSpeed  Float       // in km/h
+  speedLimit    Float       // in km/h
+  isViolation   Boolean     @default(false)
+  violationSeverity String? // MINOR, MODERATE, MAJOR, SEVERE
+  
+  // Location
+  latitude      Float
+  longitude     Float
+  address       String?
+  
+  // Duration
+  duration      Int?        // Duration of violation in seconds
+  
+  // Metadata
+  metadata      Json?
+  
+  timestamp     DateTime    @default(now())
+  
+  // Relations
+  ride          Ride        @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  driver        Driver      @relation(fields: [driverId], references: [id])
+  
+  @@index([rideId, timestamp])
+  @@index([driverId, isViolation])
+}
+
+// Safety incident reporting
+model SafetyIncident {
+  id            String      @id @default(cuid())
+  rideId        String
+  reportedBy    String      // User ID
+  incidentType  IncidentType
+  
+  // Incident details
+  title         String
+  description   String
+  severity      String      @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  
+  // Location and time
+  latitude      Float?
+  longitude     Float?
+  address       String?
+  occurredAt    DateTime    @default(now())
+  
+  // Evidence
+  photos        String[]    // Array of photo URLs
+  videos        String[]    // Array of video URLs
+  audioRecording String?    // Audio recording URL
+  
+  // Investigation
+  status        String      @default("REPORTED") // REPORTED, INVESTIGATING, RESOLVED, CLOSED
+  investigator  String?     // Admin user ID
+  assignedAt    DateTime?
+  
+  // Resolution
+  resolution    String?
+  resolvedAt    DateTime?
+  actionTaken   String?
+  
+  // Follow-up
+  followUpRequired Boolean   @default(false)
+  followUpAt    DateTime?
+  followUpNotes String?
+  
+  // Metadata
+  metadata      Json?
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relations
+  ride          Ride        @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  reporter      User        @relation(fields: [reportedBy], references: [id])
+  
+  @@index([rideId, incidentType])
+  @@index([reportedBy, createdAt])
+  @@index([status, severity])
+}
+
+// Communication preferences
+model CommunicationPreference {
+  id            String      @id @default(cuid())
+  userId        String      @unique
+  
+  // Preferred communication methods
+  preferredMethod String    @default("CHAT") // CHAT, CALL, BOTH
+  allowVoiceCalls Boolean   @default(true)
+  allowVideoCalls Boolean   @default(false)
+  
+  // Language preferences
+  primaryLanguage String    @default("en")
+  enableTranslation Boolean @default(true)
+  autoTranslate   Boolean   @default(false)
+  
+  // Notification preferences
+  enableChatNotifications Boolean @default(true)
+  enableCallNotifications Boolean @default(true)
+  enablePushToTalk Boolean @default(false)
+  
+  // Do not disturb
+  dndEnabled      Boolean   @default(false)
+  dndStartTime    String?   // HH:MM format
+  dndEndTime      String?   // HH:MM format
+  
+  // Accessibility
+  enableVoiceAssist Boolean @default(false)
+  enableTextToSpeech Boolean @default(false)
+  enableSpeechToText Boolean @default(false)
+  
+  // Metadata
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+// Trip analytics and insights
+model TripAnalytics {
+  id                String      @id @default(cuid())
+  rideId            String      @unique
+  
+  // Trip metrics
+  actualDistance    Float       // in km
+  actualDuration    Int         // in seconds
+  averageSpeed      Float       // in km/h
+  maxSpeed          Float       // in km/h
+  minSpeed          Float       // in km/h
+  
+  // Efficiency metrics
+  fuelEfficiency    Float?      // km/l or equivalent
+  carbonFootprint   Float?      // in kg CO2
+  
+  // Route analysis
+  routeEfficiency   Float?      // 0-1 score
+  trafficDelay      Int?        // in seconds
+  weatherImpact     String?     // NONE, MINOR, MODERATE, MAJOR
+  
+  // Driver behavior
+  hardBraking       Int         @default(0) // Count
+  rapidAcceleration Int         @default(0) // Count
+  sharpTurns        Int         @default(0) // Count
+  idleTime          Int         @default(0) // in seconds
+  
+  // Safety metrics
+  safetyScore       Float?      // 0-100 score
+  riskEvents        Int         @default(0) // Count
+  alertsTriggered   Int         @default(0) // Count
+  
+  // Customer experience
+  comfortScore      Float?      // 0-5 rating
+  communicationScore Float?     // 0-5 rating
+  overallSatisfaction Float?    // 0-5 rating
+  
+  // Metadata
+  metadata          Json?
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Relations
+  ride              Ride        @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  
+  @@index([rideId])
+}
+
+model PushSubscription {
+  id            String    @id @default(cuid())
+  userId        String
+  endpoint      String
+  p256dh        String
+  auth          String
+  userAgent     String?
+  ipAddress     String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@index([isActive])
+}
+
+model ScheduledNotification {
+  id            String    @id @default(cuid())
+  userId        String
+  title         String
+  body          String
+  data          Json?
+  scheduledFor  DateTime
+  sent          Boolean   @default(false)
+  sentAt        DateTime?
+  cancelled     Boolean   @default(false)
+  cancelledAt   DateTime?
+  attempts      Int       @default(0)
+  maxAttempts   Int       @default(3)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([scheduledFor])
+  @@index([sent])
+  @@index([cancelled])
+}
+
+// ================================
+// NEW COMPREHENSIVE DRIVER MODELS
+// ================================
+
+model DriverAvailabilityHistory {
+  id               String   @id @default(cuid())
+  driverId         String
+  previousMode     String   // ONLINE, OFFLINE, BREAK, MAINTENANCE
+  newMode          String   // ONLINE, OFFLINE, BREAK, MAINTENANCE
+  changeReason     String?  // MANUAL, AUTOMATIC, SCHEDULED, BATTERY_LOW, etc.
+  location         Json?    // { lat, lng, address }
+  batteryLevel     Int?
+  networkQuality   String?  // EXCELLENT, GOOD, POOR, OFFLINE
+  timestamp        DateTime @default(now())
+  
+  // Relations
+  driver     Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, timestamp])
+  @@index([newMode, timestamp])
+}
+
+model DriverRequestNotification {
+  id               String   @id @default(cuid())
+  driverId         String
+  orderId          String?
+  rideId           String?
+  notificationType String   // ORDER_REQUEST, RIDE_REQUEST, BONUS_OPPORTUNITY, etc.
+  title            String
+  message          String
+  data             Json?    // Additional notification data
+  priority         String   @default("NORMAL") // HIGH, NORMAL, LOW
+  soundEnabled     Boolean  @default(true)
+  vibrationEnabled Boolean  @default(true)
+  responseRequired Boolean  @default(false)
+  expiresAt        DateTime?
+  readAt           DateTime?
+  respondedAt      DateTime?
+  response         String?  // ACCEPTED, REJECTED, IGNORED
+  createdAt        DateTime @default(now())
+  
+  // Relations
+  driver     Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  order      Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ride       Ride?   @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, createdAt])
+  @@index([notificationType, createdAt])
+  @@index([priority, createdAt])
+  @@index([expiresAt])
+}
+
+model DriverNavigationHistory {
+  id               String   @id @default(cuid())
+  driverId         String
+  orderId          String?
+  rideId           String?
+  navigationId     String   // Unique ID for this navigation session
+  startLocation    Json     // { lat, lng, address }
+  endLocation      Json     // { lat, lng, address }
+  waypoints        Json?    // Array of waypoints
+  routeData        Json?    // Google Maps route data
+  distance         Float?   // in kilometers
+  estimatedTime    Int?     // in minutes
+  actualTime       Int?     // in minutes
+  trafficCondition String?  // LIGHT, MODERATE, HEAVY
+  routeOptimized   Boolean  @default(false)
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime @default(now())
+  
+  // Relations
+  driver     Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  order      Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ride       Ride?   @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, createdAt])
+  @@index([navigationId])
+  @@index([completedAt])
+}
+
+model DriverEarningsAnalytics {
+  id               String   @id @default(cuid())
+  driverId         String
+  date             DateTime // Date for this analytics record
+  shiftId          String?
+  totalEarnings    Float    @default(0)
+  baseEarnings     Float    @default(0)
+  bonusEarnings    Float    @default(0)
+  tipEarnings      Float    @default(0)
+  fuelAllowance    Float    @default(0)
+  deductions       Float    @default(0)
+  netEarnings      Float    @default(0)
+  totalDeliveries  Int      @default(0)
+  totalRides       Int      @default(0)
+  totalDistance    Float    @default(0) // in kilometers
+  totalTime        Int      @default(0) // in minutes
+  avgEarningsPerHour Float  @default(0)
+  avgEarningsPerKm Float    @default(0)
+  peakHourEarnings Float    @default(0)
+  offPeakEarnings  Float    @default(0)
+  weeklyTotal      Float    @default(0)
+  monthlyTotal     Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  driver     Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  shift      DriverShift? @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  
+  @@index([driverId, date])
+  @@index([date])
+  @@unique([driverId, date])
+}
+
+model DriverDeliveryPhoto {
+  id               String   @id @default(cuid())
+  driverId         String
+  orderId          String
+  photoUrl         String
+  photoType        String   // PICKUP, DELIVERY, CUSTOMER_SIGNATURE, DAMAGE, etc.
+  location         Json?    // { lat, lng, address }
+  timestamp        DateTime @default(now())
+  fileSize         Int?     // in bytes
+  fileName         String?
+  metadata         Json?    // Additional photo metadata
+  
+  // Relations
+  driver     Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  order      Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, orderId])
+  @@index([photoType, timestamp])
+}
+
+model DriverSettings {
+  id               String   @id @default(cuid())
+  driverId         String   @unique
+  
+  // Notification preferences
+  enablePushNotifications Boolean @default(true)
+  enableSoundAlerts      Boolean @default(true)
+  enableVibration        Boolean @default(true)
+  notificationRadius     Float   @default(5) // km
+  quietHoursEnabled      Boolean @default(false)
+  quietHoursStart        String? // "22:00"
+  quietHoursEnd          String? // "06:00"
+  
+  // Request preferences
+  autoAcceptRequests     Boolean @default(false)
+  acceptanceTimeLimit    Int     @default(30) // seconds
+  minOrderValue          Float?  @default(0)
+  maxDeliveryDistance    Float?  @default(20) // km
+  preferredOrderTypes    String[] // FOOD, GROCERY, PHARMACY, etc.
+  
+  // Navigation preferences
+  preferredMapProvider   String  @default("GOOGLE") // GOOGLE, APPLE, WAZE
+  avoidTolls            Boolean @default(false)
+  avoidHighways         Boolean @default(false)
+  voiceNavigationEnabled Boolean @default(true)
+  
+  // Performance goals
+  dailyEarningsGoal     Float?  @default(0)
+  weeklyEarningsGoal    Float?  @default(0)
+  monthlyEarningsGoal   Float?  @default(0)
+  dailyDeliveryGoal     Int?    @default(0)
+  weeklyDeliveryGoal    Int?    @default(0)
+  
+  // Privacy settings
+  shareLocationWithCustomer Boolean @default(true)
+  shareETAWithCustomer      Boolean @default(true)
+  allowCustomerCalls        Boolean @default(true)
+  allowCustomerMessages     Boolean @default(true)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  driver     Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId])
+}
+
+model DriverDeviceInfo {
+  id               String   @id @default(cuid())
+  driverId         String
+  deviceId         String   // Unique device identifier
+  deviceType       String   // MOBILE, TABLET, WEB
+  platform         String   // iOS, ANDROID, WEB
+  osVersion        String?
+  appVersion       String?
+  batteryLevel     Int?
+  networkType      String?  // WIFI, 4G, 5G, 3G, etc.
+  networkQuality   String?  // EXCELLENT, GOOD, POOR, OFFLINE
+  gpsEnabled       Boolean  @default(false)
+  locationAccuracy Float?   // in meters
+  lastSeen         DateTime @default(now())
+  isActive         Boolean  @default(true)
+  
+  // Relations
+  driver     Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, deviceId])
+  @@index([isActive, lastSeen])
+  @@unique([driverId, deviceId])
+}
+
+// ====================================
+// COMPREHENSIVE PAYMENT SYSTEM MODELS
+// ====================================
+
+// Payment method types and processing types
+enum PaymentMethodType {
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_ACCOUNT
+  DIGITAL_WALLET
+  PAYPAL
+  APPLE_PAY
+  GOOGLE_PAY
+  CRYPTOCURRENCY
+  GIFT_CARD
+  STORE_CREDIT
+}
+
+enum PaymentProvider {
+  STRIPE
+  SQUARE
+  PAYPAL
+  APPLE_PAY
+  GOOGLE_PAY
+  COINBASE
+  INTERAC
+  VISA
+  MASTERCARD
+  AMEX
+}
+
+enum PaymentAttemptStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  CANCELLED
+  EXPIRED
+  REQUIRES_ACTION
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  DISPUTED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REVERSED
+}
+
+enum PayoutFrequency {
+  INSTANT
+  DAILY
+  WEEKLY
+  MONTHLY
+  MANUAL
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  PAYOUT
+  FEE
+  ADJUSTMENT
+  CHARGEBACK
+  DISPUTE
+  TRANSFER
+  COMMISSION
+  TIP
+  BONUS
+  PENALTY
+}
+
+enum DisputeStatus {
+  CREATED
+  UNDER_REVIEW
+  REQUIRES_RESPONSE
+  EVIDENCE_REQUIRED
+  EVIDENCE_SUBMITTED
+  RESOLVED
+  LOST
+  WON
+  CANCELLED
+}
+
+enum ComplianceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  UNDER_REVIEW
+  REQUIRES_DOCUMENTATION
+  SUSPENDED
+}
+
+enum WalletType {
+  CUSTOMER
+  VENDOR
+  DRIVER
+  PLATFORM
+  ESCROW
+  REWARDS
+}
+
+enum CryptocurrencyType {
+  BITCOIN
+  ETHEREUM
+  LITECOIN
+  USDC
+  USDT
+  CARDANO
+  POLYGON
+}
+
+// Customer Payment Methods
+model PaymentMethod {
+  id                String            @id @default(cuid())
+  userId            String
+  type              PaymentMethodType
+  provider          PaymentProvider
+  
+  // Card details (tokenized)
+  last4             String?
+  brand             String?           // visa, mastercard, amex, etc.
+  expMonth          Int?
+  expYear           Int?
+  fingerprint       String?
+  
+  // External tokens
+  stripePaymentMethodId String?
+  squareCardId      String?
+  paypalAccountId   String?
+  
+  // Bank account details (for ACH)
+  bankName          String?
+  accountType       String?           // checking, savings
+  routingNumber     String?           // Encrypted
+  
+  // Digital wallet details
+  walletType        String?           // apple_pay, google_pay, paypal
+  walletAccountId   String?
+  
+  // Verification and security
+  isVerified        Boolean           @default(false)
+  verifiedAt        DateTime?
+  requires3DS       Boolean           @default(false)
+  
+  // Status and preferences
+  isDefault         Boolean           @default(false)
+  isActive          Boolean           @default(true)
+  nickname          String?           // "Work Card", "Personal Account"
+  
+  // Billing address
+  billingAddress    Json?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments          Payment[]
+  verifications     PaymentMethodVerification[]
+  recurringPayments RecurringPayment[]
+  
+  @@index([userId])
+  @@index([type])
+  @@index([isDefault])
+  @@index([isActive])
+  @@index([stripePaymentMethodId])
+}
+
+// Payment method verification (3D Secure, CVV, etc.)
+model PaymentMethodVerification {
+  id                String    @id @default(cuid())
+  paymentMethodId   String
+  verificationType  String    // "3d_secure", "cvv", "avs", "sms"
+  status            String    // "pending", "verified", "failed"
+  
+  // Verification details
+  verificationCode  String?
+  verificationUrl   String?
+  attemptCount      Int       @default(0)
+  maxAttempts       Int       @default(3)
+  
+  // Results
+  verifiedAt        DateTime?
+  failedAt          DateTime?
+  expiresAt         DateTime?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  
+  // Relations
+  paymentMethod     PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Cascade)
+  
+  @@index([paymentMethodId])
+  @@index([status])
+}
+
+// Payment retry attempts
+model PaymentAttempt {
+  id                String              @id @default(cuid())
+  paymentId         String
+  attemptNumber     Int
+  status            PaymentAttemptStatus
+  
+  // Attempt details
+  amount            Float
+  paymentMethodId   String?
+  provider          PaymentProvider
+  
+  // External IDs
+  externalId        String?
+  chargeId          String?
+  
+  // Results
+  successAt         DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+  failureCode       String?
+  
+  // Retry logic
+  retryAt           DateTime?
+  retryCount        Int               @default(0)
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  
+  // Relations
+  payment           Payment           @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  @@index([paymentId])
+  @@index([status])
+  @@index([retryAt])
+  @@index([attemptNumber])
+}
+
+// Multi-vendor payment splitting
+model PaymentSplit {
+  id                String    @id @default(cuid())
+  paymentId         String
+  recipientId       String    // vendor or driver ID
+  recipientType     String    // "vendor", "driver", "platform"
+  
+  // Split amounts
+  amount            Float
+  percentage        Float?
+  commission        Float     @default(0)
+  processingFee     Float     @default(0)
+  netAmount         Float
+  
+  // Status
+  status            String    @default("pending") // pending, processed, failed
+  processedAt       DateTime?
+  
+  // Connected account details
+  connectedAccountId String?
+  transferId        String?   // Stripe transfer ID
+  
+  // Metadata
+  description       String?
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  payment           Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  
+  @@index([paymentId])
+  @@index([recipientId])
+  @@index([recipientType])
+  @@index([status])
+}
+
+// Vendor and Driver Payment Accounts
+model PaymentAccount {
+  id                String            @id @default(cuid())
+  userId            String
+  accountType       String            // "bank_account", "connected_account"
+  provider          PaymentProvider
+  
+  // Bank account details
+  bankName          String?
+  accountNumber     String?           // Encrypted
+  routingNumber     String?           // Encrypted
+  accountHolderType String?           // checking, savings
+  
+  // Connected account details
+  connectedAccountId String?          // Stripe connected account ID
+  externalAccountId String?
+  
+  // Verification status
+  isVerified        Boolean           @default(false)
+  verifiedAt        DateTime?
+  verificationDocs  String[]          // Document URLs
+  
+  // Account details
+  accountHolderName String?
+  accountHolderTypeEnum String?       // individual, company
+  
+  // Address
+  country           String            @default("CA")
+  currency          String            @default("CAD")
+  
+  // Status
+  isActive          Boolean           @default(true)
+  isDefault         Boolean           @default(false)
+  
+  // Capabilities
+  capabilities      String[]          // ["transfers", "payouts"]
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payouts           Payout[]
+  
+  @@index([userId])
+  @@index([provider])
+  @@index([isVerified])
+  @@index([isActive])
+  @@index([connectedAccountId])
+}
+
+// Automated payouts to vendors and drivers
+model Payout {
+  id                String        @id @default(cuid())
+  payoutNumber      String        @unique
+  userId            String        // vendor or driver ID
+  paymentAccountId  String
+  
+  // Payout details
+  amount            Float
+  currency          String        @default("CAD")
+  status            PayoutStatus  @default(PENDING)
+  
+  // Payout breakdown
+  grossAmount       Float
+  fees              Float         @default(0)
+  netAmount         Float
+  
+  // External IDs
+  stripePayoutId    String?
+  squarePayoutId    String?
+  externalId        String?
+  
+  // Timing
+  scheduledFor      DateTime?
+  processedAt       DateTime?
+  arrivedAt         DateTime?
+  failedAt          DateTime?
+  
+  // Failure handling
+  failureReason     String?
+  failureCode       String?
+  retryCount        Int           @default(0)
+  
+  // Period covered
+  periodStart       DateTime
+  periodEnd         DateTime
+  
+  // Metadata
+  description       String?
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relations
+  user              User          @relation(fields: [userId], references: [id])
+  paymentAccount    PaymentAccount @relation(fields: [paymentAccountId], references: [id])
+  transactions      Transaction[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([scheduledFor])
+  @@index([periodStart, periodEnd])
+  @@index([stripePayoutId])
+}
+
+// Payout schedules for vendors and drivers
+model PayoutSchedule {
+  id                String          @id @default(cuid())
+  userId            String          @unique
+  frequency         PayoutFrequency @default(WEEKLY)
+  
+  // Schedule details
+  dayOfWeek         Int?            // 0-6 (Sunday-Saturday)
+  dayOfMonth        Int?            // 1-31
+  hour              Int             @default(9)  // 24-hour format
+  
+  // Minimum payout
+  minimumAmount     Float           @default(25.00)
+  
+  // Settings
+  isActive          Boolean         @default(true)
+  autoPayoutEnabled Boolean         @default(true)
+  
+  // Next payout
+  nextPayoutAt      DateTime?
+  
+  // Metadata
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // Relations
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([frequency])
+  @@index([nextPayoutAt])
+}
+
+// Comprehensive transaction logging
+model Transaction {
+  id                String          @id @default(cuid())
+  transactionNumber String          @unique
+  userId            String
+  
+  // Transaction details
+  type              TransactionType
+  amount            Float
+  currency          String          @default("CAD")
+  status            String          @default("completed")
+  
+  // Related entities
+  paymentId         String?
+  payoutId          String?
+  refundId          String?
+  orderId           String?
+  rideId            String?
+  paymentSplitId    String?
+  
+  // Description
+  description       String
+  reference         String?         // External reference
+  
+  // Balances (before/after)
+  balanceBefore     Float?
+  balanceAfter      Float?
+  
+  // Fees
+  platformFee       Float           @default(0)
+  processingFee     Float           @default(0)
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime        @default(now())
+  
+  // Relations
+  user              User            @relation(fields: [userId], references: [id])
+  payment           Payment?        @relation(fields: [paymentId], references: [id])
+  payout            Payout?         @relation(fields: [payoutId], references: [id])
+  refund            Refund?         @relation(fields: [refundId], references: [id])
+  split             PaymentSplit?   @relation(fields: [paymentSplitId], references: [id])
+  
+  @@index([userId])
+  @@index([type])
+  @@index([paymentId])
+  @@index([payoutId])
+  @@index([orderId])
+  @@index([rideId])
+  @@index([createdAt])
+}
+
+// Refund management
+model Refund {
+  id                String        @id @default(cuid())
+  refundNumber      String        @unique
+  paymentId         String
+  
+  // Refund details
+  amount            Float
+  currency          String        @default("CAD")
+  status            RefundStatus  @default(PENDING)
+  reason            String        // "requested_by_customer", "duplicate", "fraudulent"
+  
+  // External IDs
+  stripeRefundId    String?
+  squareRefundId    String?
+  externalId        String?
+  
+  // Refund breakdown
+  refundAmount      Float
+  refundFee         Float         @default(0)
+  netRefund         Float
+  
+  // Timing
+  requestedAt       DateTime      @default(now())
+  processedAt       DateTime?
+  completedAt       DateTime?
+  failedAt          DateTime?
+  
+  // Failure handling
+  failureReason     String?
+  failureCode       String?
+  
+  // Requester details
+  requestedBy       String        // user ID who requested
+  requestReason     String?
+  customerNote      String?
+  internalNote      String?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relations
+  payment           Payment       @relation(fields: [paymentId], references: [id])
+  transactions      Transaction[]
+  
+  @@index([paymentId])
+  @@index([status])
+  @@index([stripeRefundId])
+  @@index([createdAt])
+}
+
+// Payment disputes and chargebacks
+model PaymentDispute {
+  id                String        @id @default(cuid())
+  paymentId         String
+  disputeNumber     String        @unique
+  
+  // Dispute details
+  status            DisputeStatus @default(CREATED)
+  reason            String        // "duplicate", "fraudulent", "subscription_canceled"
+  amount            Float
+  currency          String        @default("CAD")
+  
+  // External IDs
+  stripeDisputeId   String?
+  squareDisputeId   String?
+  
+  // Important dates
+  createdAt         DateTime      @default(now())
+  dueBy             DateTime?     // Response deadline
+  evidenceBy        DateTime?     // Evidence deadline
+  
+  // Evidence
+  evidenceDetails   Json?
+  evidenceSubmitted Boolean       @default(false)
+  evidenceSubmittedAt DateTime?
+  
+  // Resolution
+  resolvedAt        DateTime?
+  resolution        String?       // "won", "lost", "accepted"
+  
+  // Metadata
+  metadata          Json?
+  updatedAt         DateTime      @updatedAt
+  
+  // Relations
+  payment           Payment       @relation(fields: [paymentId], references: [id])
+  
+  @@index([paymentId])
+  @@index([status])
+  @@index([stripeDisputeId])
+  @@index([dueBy])
+}
+
+// Digital wallet system
+model DigitalWallet {
+  id                String        @id @default(cuid())
+  userId            String        @unique
+  type              WalletType    @default(CUSTOMER)
+  
+  // Balance
+  balance           Float         @default(0)
+  currency          String        @default("CAD")
+  
+  // Limits
+  dailyLimit        Float?
+  monthlyLimit      Float?
+  
+  // Status
+  isActive          Boolean       @default(true)
+  isFrozen          Boolean       @default(false)
+  frozenReason      String?
+  frozenAt          DateTime?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relations
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      WalletTransaction[]
+  
+  @@index([userId])
+  @@index([type])
+  @@index([isActive])
+}
+
+// Wallet transaction history
+model WalletTransaction {
+  id                String        @id @default(cuid())
+  walletId          String
+  
+  // Transaction details
+  type              String        // "credit", "debit", "transfer", "refund"
+  amount            Float
+  currency          String        @default("CAD")
+  
+  // Balance tracking
+  balanceBefore     Float
+  balanceAfter      Float
+  
+  // Related entities
+  paymentId         String?
+  refundId          String?
+  transferId        String?
+  
+  // Description
+  description       String
+  reference         String?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  
+  // Relations
+  wallet            DigitalWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  
+  @@index([walletId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// Loyalty points and rewards
+model LoyaltyPoints {
+  id                String        @id @default(cuid())
+  userId            String        @unique
+  
+  // Points balance
+  points            Int           @default(0)
+  lifetimeEarned    Int           @default(0)
+  lifetimeSpent     Int           @default(0)
+  
+  // Tier information
+  tier              String        @default("bronze") // bronze, silver, gold, platinum
+  tierProgress      Int           @default(0)
+  nextTierAt        Int?
+  
+  // Expiration
+  expiresAt         DateTime?
+  
+  // Status
+  isActive          Boolean       @default(true)
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relations
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  history           LoyaltyPointsHistory[]
+  
+  @@index([userId])
+  @@index([tier])
+}
+
+// Loyalty points transaction history
+model LoyaltyPointsHistory {
+  id                String        @id @default(cuid())
+  loyaltyPointsId   String
+  
+  // Transaction details
+  type              String        // "earned", "spent", "expired", "adjusted"
+  points            Int           // Can be negative for spending
+  
+  // Related entities
+  orderId           String?
+  rideId            String?
+  promotionId       String?
+  
+  // Balance tracking
+  balanceBefore     Int
+  balanceAfter      Int
+  
+  // Description
+  description       String
+  reference         String?
+  
+  // Expiration
+  expiresAt         DateTime?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  
+  // Relations
+  loyaltyPoints     LoyaltyPoints @relation(fields: [loyaltyPointsId], references: [id], onDelete: Cascade)
+  
+  @@index([loyaltyPointsId])
+  @@index([type])
+  @@index([orderId])
+  @@index([rideId])
+  @@index([createdAt])
+}
+
+// Cryptocurrency payments
+model CryptocurrencyPayment {
+  id                String            @id @default(cuid())
+  paymentId         String            @unique
+  
+  // Cryptocurrency details
+  cryptocurrency    CryptocurrencyType
+  amount            Float             // Amount in crypto
+  amountUsd         Float             // USD equivalent at time of payment
+  amountCad         Float             // CAD equivalent
+  
+  // Blockchain details
+  walletAddress     String
+  transactionHash   String?
+  blockHeight       Int?
+  confirmations     Int               @default(0)
+  requiredConfirmations Int           @default(6)
+  
+  // Status
+  status            String            @default("pending") // pending, confirmed, failed
+  
+  // Exchange rate
+  exchangeRate      Float             // Crypto to CAD rate
+  exchangeRateUsd   Float             // Crypto to USD rate
+  rateProvider      String?           // "coinbase", "binance", etc.
+  
+  // Timing
+  broadcastAt       DateTime?
+  confirmedAt       DateTime?
+  expiredAt         DateTime?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  payment           Payment           @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  @@index([paymentId])
+  @@index([cryptocurrency])
+  @@index([status])
+  @@index([transactionHash])
+}
+
+// Recurring payments and subscriptions
+model RecurringPayment {
+  id                String            @id @default(cuid())
+  userId            String
+  
+  // Subscription details
+  name              String
+  description       String?
+  amount            Float
+  currency          String            @default("CAD")
+  
+  // Schedule
+  frequency         String            // "daily", "weekly", "monthly", "yearly"
+  interval          Int               @default(1) // Every X periods
+  
+  // Status
+  isActive          Boolean           @default(true)
+  status            String            @default("active") // active, paused, cancelled
+  
+  // Payment method
+  paymentMethodId   String?
+  
+  // Billing cycle
+  nextBillingDate   DateTime
+  lastBillingDate   DateTime?
+  billingCycleAnchor DateTime?
+  
+  // Trial period
+  trialEnd          DateTime?
+  trialDays         Int?
+  
+  // Failure handling
+  failureCount      Int               @default(0)
+  maxFailures       Int               @default(3)
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentMethodObj  PaymentMethod?    @relation(fields: [paymentMethodId], references: [id])
+  invoices          RecurringPaymentInvoice[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([nextBillingDate])
+}
+
+// Recurring payment invoices
+model RecurringPaymentInvoice {
+  id                String            @id @default(cuid())
+  recurringPaymentId String
+  
+  // Invoice details
+  invoiceNumber     String            @unique
+  amount            Float
+  currency          String            @default("CAD")
+  
+  // Status
+  status            String            @default("pending") // pending, paid, failed, cancelled
+  
+  // Payment
+  paymentId         String?
+  paidAt            DateTime?
+  
+  // Billing period
+  periodStart       DateTime
+  periodEnd         DateTime
+  
+  // Due date
+  dueDate           DateTime
+  
+  // Failure handling
+  attemptCount      Int               @default(0)
+  lastAttemptAt     DateTime?
+  nextAttemptAt     DateTime?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  recurringPayment  RecurringPayment  @relation(fields: [recurringPaymentId], references: [id], onDelete: Cascade)
+  payment           Payment?          @relation(fields: [paymentId], references: [id])
+  
+  @@index([recurringPaymentId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([paymentId])
+}
+
+// Payment webhooks logging
+model PaymentWebhook {
+  id                String    @id @default(cuid())
+  paymentId         String?
+  
+  // Webhook details
+  provider          PaymentProvider
+  eventType         String    // "payment.succeeded", "payment.failed", etc.
+  eventId           String    // External event ID
+  
+  // Request details
+  requestBody       Json
+  requestHeaders    Json?
+  signature         String?
+  
+  // Processing
+  processed         Boolean   @default(false)
+  processedAt       DateTime?
+  processingError   String?
+  
+  // Retry logic
+  retryCount        Int       @default(0)
+  maxRetries        Int       @default(3)
+  nextRetryAt       DateTime?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  payment           Payment?  @relation(fields: [paymentId], references: [id])
+  
+  @@index([paymentId])
+  @@index([provider])
+  @@index([eventType])
+  @@index([processed])
+  @@index([createdAt])
+}
+
+// Payment audit trail
+model PaymentAudit {
+  id                String    @id @default(cuid())
+  paymentId         String?
+  userId            String?
+  
+  // Audit details
+  action            String    // "created", "updated", "refunded", "disputed"
+  entity            String    // "payment", "refund", "dispute"
+  entityId          String?
+  
+  // Changes
+  oldValues         Json?
+  newValues         Json?
+  
+  // Context
+  ipAddress         String?
+  userAgent         String?
+  source            String?   // "web", "mobile", "api", "webhook"
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  
+  // Relations
+  payment           Payment?  @relation(fields: [paymentId], references: [id])
+  user              User?     @relation(fields: [userId], references: [id])
+  
+  @@index([paymentId])
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+// Fee structures and calculations
+model PaymentFee {
+  id                String    @id @default(cuid())
+  name              String
+  type              String    // "percentage", "fixed", "tiered"
+  
+  // Fee structure
+  percentage        Float?    // 2.9 for 2.9%
+  fixedAmount       Float?    // $0.30
+  
+  // Tiered structure
+  tiers             Json?     // Array of tier objects
+  
+  // Applicability
+  paymentMethod     String?   // "card", "bank_transfer", "digital_wallet"
+  provider          PaymentProvider?
+  
+  // Limits
+  minimumFee        Float?
+  maximumFee        Float?
+  
+  // Status
+  isActive          Boolean   @default(true)
+  
+  // Effective dates
+  effectiveFrom     DateTime  @default(now())
+  effectiveTo       DateTime?
+  
+  // Metadata
+  description       String?
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([type])
+  @@index([paymentMethod])
+  @@index([provider])
+  @@index([isActive])
+}
+
+// Financial analytics and reporting
+model PaymentAnalytics {
+  id                String    @id @default(cuid())
+  date              DateTime  // Date for the analytics record
+  
+  // Payment volume
+  totalPayments     Int       @default(0)
+  totalAmount       Float     @default(0)
+  successfulPayments Int      @default(0)
+  failedPayments    Int       @default(0)
+  
+  // Payment methods
+  cardPayments      Int       @default(0)
+  cardAmount        Float     @default(0)
+  digitalWalletPayments Int   @default(0)
+  digitalWalletAmount Float   @default(0)
+  bankTransferPayments Int    @default(0)
+  bankTransferAmount Float    @default(0)
+  
+  // Fees and commissions
+  totalFees         Float     @default(0)
+  processingFees    Float     @default(0)
+  platformFees      Float     @default(0)
+  
+  // Refunds
+  totalRefunds      Int       @default(0)
+  refundAmount      Float     @default(0)
+  
+  // Disputes
+  totalDisputes     Int       @default(0)
+  disputeAmount     Float     @default(0)
+  
+  // Payouts
+  totalPayouts      Int       @default(0)
+  payoutAmount      Float     @default(0)
+  
+  // Performance metrics
+  successRate       Float     @default(0)
+  avgTransactionAmount Float  @default(0)
+  avgProcessingTime Int       @default(0) // in seconds
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@unique([date])
+  @@index([date])
+}
+
+// Fraud detection and prevention
+model FraudDetection {
+  id                String    @id @default(cuid())
+  paymentId         String?
+  userId            String?
+  
+  // Risk assessment
+  riskScore         Float     // 0-100
+  riskLevel         String    // "low", "medium", "high"
+  
+  // Fraud indicators
+  indicators        Json      // Array of fraud indicators
+  
+  // Decision
+  action            String    // "approve", "review", "decline", "challenge"
+  
+  // Machine learning
+  model             String?   // ML model used
+  modelVersion      String?
+  
+  // Review
+  reviewRequired    Boolean   @default(false)
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  reviewDecision    String?   // "approve", "decline"
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  payment           Payment?  @relation(fields: [paymentId], references: [id])
+  user              User?     @relation(fields: [userId], references: [id])
+  
+  @@index([paymentId])
+  @@index([userId])
+  @@index([riskLevel])
+  @@index([action])
+  @@index([reviewRequired])
+}
+
+// KYC/AML compliance for payments
+model PaymentCompliance {
+  id                String            @id @default(cuid())
+  userId            String            @unique
+  
+  // KYC status
+  kycStatus         ComplianceStatus  @default(PENDING)
+  kycLevel          String            @default("basic") // basic, standard, premium
+  
+  // AML status
+  amlStatus         ComplianceStatus  @default(PENDING)
+  amlRiskLevel      String            @default("low") // low, medium, high
+  
+  // Verification details
+  identityVerified  Boolean           @default(false)
+  addressVerified   Boolean           @default(false)
+  bankVerified      Boolean           @default(false)
+  
+  // Limits
+  dailyLimit        Float?
+  monthlyLimit      Float?
+  yearlyLimit       Float?
+  lifetimeLimit     Float?
+  
+  // PEP and sanctions
+  isPEP             Boolean           @default(false) // Politically Exposed Person
+  sanctionsCheck    Boolean           @default(false)
+  sanctionsResult   String?
+  
+  // Monitoring
+  lastReview        DateTime?
+  nextReview        DateTime?
+  
+  // Documentation
+  documents         String[]          // Array of document URLs
+  
+  // Status updates
+  statusUpdatedAt   DateTime?
+  statusReason      String?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([kycStatus])
+  @@index([amlStatus])
+  @@index([nextReview])
+}
+
+// ============================================================================
+// COMPREHENSIVE REAL-TIME INFRASTRUCTURE MODELS
+// ============================================================================
+
+// WebSocket Connection Management
+model WebSocketConnection {
+  id              String    @id @default(cuid())
+  userId          String
+  socketId        String    @unique
+  userAgent       String?
+  ipAddress       String?
+  connectedAt     DateTime  @default(now())
+  lastActivity    DateTime  @default(now())
+  disconnectedAt  DateTime?
+  isActive        Boolean   @default(true)
+  
+  // Connection metadata
+  platform        String?   // web, ios, android
+  appVersion      String?
+  deviceId        String?
+  deviceType      String?
+  
+  // Real-time rooms
+  rooms           String[]  // Array of room IDs user is in
+  
+  // Performance metrics
+  latency         Float?    // in milliseconds
+  packetsReceived Int       @default(0)
+  packetsSent     Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([socketId])
+  @@index([connectedAt])
+  @@index([isActive])
+}
+
+// Real-time Event Management
+model RealTimeEvent {
+  id              String    @id @default(cuid())
+  eventType       String    // order_status, driver_location, message, notification
+  eventData       Json      // Event payload
+  targetUserId    String?   // Specific user target
+  targetRole      String?   // Target user role
+  roomId          String?   // Room to broadcast to
+  
+  // Event metadata
+  orderId         String?
+  rideId          String?
+  vendorId        String?
+  driverId        String?
+  customerId      String?
+  
+  // Broadcasting
+  broadcast       Boolean   @default(false)
+  priority        String    @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  
+  // Delivery tracking
+  sent            Boolean   @default(false)
+  sentAt          DateTime?
+  delivered       Boolean   @default(false)
+  deliveredAt     DateTime?
+  failed          Boolean   @default(false)
+  failureReason   String?
+  retryCount      Int       @default(0)
+  maxRetries      Int       @default(3)
+  
+  // Scheduling
+  scheduleFor     DateTime?
+  expiresAt       DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([eventType])
+  @@index([targetUserId])
+  @@index([roomId])
+  @@index([orderId])
+  @@index([rideId])
+  @@index([sent])
+  @@index([scheduleFor])
+  @@index([expiresAt])
+}
+
+// Device Token Management for Push Notifications
+model DeviceToken {
+  id            String    @id @default(cuid())
+  userId        String
+  token         String    @unique
+  platform      String    // ios, android, web
+  deviceId      String?
+  deviceName    String?
+  appVersion    String?
+  osVersion     String?
+  
+  // Token status
+  isActive      Boolean   @default(true)
+  lastUsed      DateTime  @default(now())
+  expiresAt     DateTime?
+  
+  // Notification preferences
+  enabled       Boolean   @default(true)
+  categories    String[]  // Array of notification categories
+  
+  // Metadata
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+  @@index([platform])
+  @@index([isActive])
+  @@index([lastUsed])
+}
+
+// Enhanced Push Notification System
+model PushNotificationQueue {
+  id              String    @id @default(cuid())
+  userId          String
+  title           String
+  body            String
+  data            Json?
+  
+  // Targeting
+  deviceTokens    String[]  // Specific device tokens
+  platforms       String[]  // Target platforms
+  
+  // Notification options
+  badge           Int?
+  sound           String?
+  category        String?
+  icon            String?
+  image           String?
+  clickAction     String?
+  
+  // Delivery tracking
+  status          String    @default("PENDING") // PENDING, SENT, DELIVERED, FAILED
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  
+  // Analytics
+  clicked         Boolean   @default(false)
+  clickedAt       DateTime?
+  dismissed       Boolean   @default(false)
+  dismissedAt     DateTime?
+  
+  // Scheduling
+  scheduleFor     DateTime?
+  expiresAt       DateTime?
+  
+  // Retry logic
+  retryCount      Int       @default(0)
+  maxRetries      Int       @default(3)
+  nextRetryAt     DateTime?
+  
+  // Metadata
+  orderId         String?
+  rideId          String?
+  vendorId        String?
+  driverId        String?
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([scheduleFor])
+  @@index([expiresAt])
+  @@index([orderId])
+  @@index([rideId])
+}
+
+// SMS Notification System
+model SmsNotification {
+  id              String    @id @default(cuid())
+  userId          String?
+  phoneNumber     String
+  message         String
+  type            String    // verification, alert, marketing, transactional
+  
+  // SMS metadata
+  countryCode     String?
+  carrier         String?
+  messageId       String?   // Provider message ID
+  
+  // Delivery tracking
+  status          String    @default("PENDING") // PENDING, SENT, DELIVERED, FAILED
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  
+  // Cost tracking
+  cost            Float?
+  segments        Int?      // Number of SMS segments
+  
+  // Scheduling
+  scheduleFor     DateTime?
+  expiresAt       DateTime?
+  
+  // Retry logic
+  retryCount      Int       @default(0)
+  maxRetries      Int       @default(3)
+  nextRetryAt     DateTime?
+  
+  // Metadata
+  orderId         String?
+  rideId          String?
+  vendorId        String?
+  driverId        String?
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  user            User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([phoneNumber])
+  @@index([status])
+  @@index([scheduleFor])
+  @@index([expiresAt])
+  @@index([orderId])
+  @@index([rideId])
+}
+
+// Email Notification System
+model EmailNotification {
+  id              String    @id @default(cuid())
+  userId          String?
+  email           String
+  subject         String
+  body            String    @db.Text
+  template        String?   // Email template used
+  
+  // Email metadata
+  fromEmail       String?
+  fromName        String?
+  replyTo         String?
+  attachments     String[]  // Array of attachment URLs
+  
+  // Delivery tracking
+  status          String    @default("PENDING") // PENDING, SENT, DELIVERED, OPENED, CLICKED, FAILED
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  openedAt        DateTime?
+  clickedAt       DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  
+  // Email provider data
+  messageId       String?   // Provider message ID
+  provider        String?   // sendgrid, mailgun, etc.
+  
+  // Analytics
+  openCount       Int       @default(0)
+  clickCount      Int       @default(0)
+  
+  // Scheduling
+  scheduleFor     DateTime?
+  expiresAt       DateTime?
+  
+  // Retry logic
+  retryCount      Int       @default(0)
+  maxRetries      Int       @default(3)
+  nextRetryAt     DateTime?
+  
+  // Metadata
+  orderId         String?
+  rideId          String?
+  vendorId        String?
+  driverId        String?
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  user            User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([email])
+  @@index([status])
+  @@index([scheduleFor])
+  @@index([expiresAt])
+  @@index([orderId])
+  @@index([rideId])
+}
+
+// In-App Notification Center
+model InAppNotification {
+  id              String    @id @default(cuid())
+  userId          String
+  title           String
+  message         String
+  type            String    // info, success, warning, error, order, ride, payment
+  category        String?   // orders, rides, payments, system, marketing
+  
+  // Notification data
+  data            Json?
+  imageUrl        String?
+  iconUrl         String?
+  actionUrl       String?
+  actionText      String?
+  
+  // Status tracking
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+  isStarred       Boolean   @default(false)
+  starredAt       DateTime?
+  isArchived      Boolean   @default(false)
+  archivedAt      DateTime?
+  
+  // Priority and urgency
+  priority        String    @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  urgent          Boolean   @default(false)
+  
+  // Expiration
+  expiresAt       DateTime?
+  
+  // Metadata
+  orderId         String?
+  rideId          String?
+  vendorId        String?
+  driverId        String?
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+  @@index([category])
+  @@index([priority])
+  @@index([urgent])
+  @@index([expiresAt])
+  @@index([orderId])
+  @@index([rideId])
+}
+
+// Notification Preferences Management
+model NotificationChannel {
+  id              String    @id @default(cuid())
+  userId          String
+  
+  // Channel preferences
+  pushEnabled     Boolean   @default(true)
+  emailEnabled    Boolean   @default(true)
+  smsEnabled      Boolean   @default(false)
+  inAppEnabled    Boolean   @default(true)
+  
+  // Category preferences
+  orderUpdates    Boolean   @default(true)
+  rideUpdates     Boolean   @default(true)
+  paymentUpdates  Boolean   @default(true)
+  marketingUpdates Boolean  @default(false)
+  systemUpdates   Boolean   @default(true)
+  
+  // Timing preferences
+  quietHours      Boolean   @default(false)
+  quietStart      String?   // "22:00"
+  quietEnd        String?   // "06:00"
+  timezone        String?
+  
+  // Frequency preferences
+  realTime        Boolean   @default(true)
+  digest          Boolean   @default(false)
+  digestFrequency String?   // daily, weekly
+  digestTime      String?   // "09:00"
+  
+  // Advanced preferences
+  priority        String    @default("NORMAL") // LOW, NORMAL, HIGH, ALL
+  languages       String[]  // Preferred languages
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId])
+  @@index([userId])
+}
+
+// Real-time Order Status Updates
+model OrderStatusUpdate {
+  id              String    @id @default(cuid())
+  orderId         String
+  previousStatus  OrderStatus?
+  newStatus       OrderStatus
+  message         String?
+  
+  // Update source
+  updatedBy       String?   // User ID who made the update
+  updatedByRole   String?   // Role of the updater
+  source          String?   // system, manual, automated
+  
+  // Location data
+  latitude        Float?
+  longitude       Float?
+  address         String?
+  
+  // Timing data
+  estimatedTime   DateTime?
+  actualTime      DateTime?
+  
+  // Metadata
+  notes           String?
+  photos          String[]  // Array of photo URLs
+  metadata        Json?
+  
+  // Broadcasting
+  broadcast       Boolean   @default(true)
+  broadcastAt     DateTime?
+  
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId])
+  @@index([newStatus])
+  @@index([createdAt])
+}
+
+// Real-time Driver Location Tracking
+model DriverLocationUpdate {
+  id              String    @id @default(cuid())
+  driverId        String
+  latitude        Float
+  longitude       Float
+  accuracy        Float?    // GPS accuracy in meters
+  heading         Float?    // Direction in degrees
+  speed           Float?    // Speed in km/h
+  altitude        Float?    // Altitude in meters
+  
+  // Driver status
+  isOnline        Boolean   @default(true)
+  isDelivering    Boolean   @default(false)
+  isRiding        Boolean   @default(false)
+  
+  // Current assignments
+  currentOrderId  String?
+  currentRideId   String?
+  
+  // Device info
+  deviceId        String?
+  batteryLevel    Int?      // Battery percentage
+  
+  // Location metadata
+  address         String?
+  city            String?
+  province        String?
+  postalCode      String?
+  
+  // Geofence data
+  geofences       String[]  // Array of geofence IDs
+  
+  // Broadcasting
+  broadcast       Boolean   @default(true)
+  broadcastAt     DateTime?
+  
+  timestamp       DateTime  @default(now())
+  
+  // Relations
+  driver          Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId])
+  @@index([latitude, longitude])
+  @@index([timestamp])
+  @@index([isOnline])
+  @@index([currentOrderId])
+  @@index([currentRideId])
+}
+
+// Real-time Chat System
+model ChatRoom {
+  id              String    @id @default(cuid())
+  type            String    // order, ride, support, group
+  participants    String[]  // Array of user IDs
+  
+  // Room metadata
+  name            String?
+  description     String?
+  avatarUrl       String?
+  
+  // Associated records
+  orderId         String?
+  rideId          String?
+  vendorId        String?
+  driverId        String?
+  
+  // Room settings
+  isActive        Boolean   @default(true)
+  isPrivate       Boolean   @default(true)
+  allowMessages   Boolean   @default(true)
+  allowMedia      Boolean   @default(true)
+  
+  // Room statistics
+  messageCount    Int       @default(0)
+  lastMessageAt   DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  messages        ChatRoomMessage[]
+  
+  @@index([type])
+  @@index([orderId])
+  @@index([rideId])
+  @@index([isActive])
+  @@index([lastMessageAt])
+}
+
+model ChatRoomMessage {
+  id              String    @id @default(cuid())
+  roomId          String
+  senderId        String
+  message         String?
+  messageType     String    @default("text") // text, image, audio, video, file, location
+  
+  // Message data
+  data            Json?     // Additional message data
+  mediaUrl        String?   // URL for media messages
+  mediaType       String?   // image/jpeg, audio/mp3, etc.
+  mediaSize       Int?      // File size in bytes
+  
+  // Message status
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+  isEdited        Boolean   @default(false)
+  editedAt        DateTime?
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  
+  // Reply functionality
+  replyToId       String?   // Message ID being replied to
+  
+  // Metadata
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  room            ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender          User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo         ChatRoomMessage? @relation("MessageReply", fields: [replyToId], references: [id])
+  replies         ChatRoomMessage[] @relation("MessageReply")
+  
+  @@index([roomId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([messageType])
+  @@index([isRead])
+  @@index([replyToId])
+}
+
+// Real-time Analytics Events
+model AnalyticsEvent {
+  id              String    @id @default(cuid())
+  userId          String?
+  sessionId       String?
+  
+  // Event data
+  eventType       String    // page_view, click, scroll, order_placed, etc.
+  eventCategory   String?   // engagement, conversion, error, etc.
+  eventAction     String?
+  eventLabel      String?
+  eventValue      Float?
+  
+  // Page/screen data
+  pageUrl         String?
+  pageTitle       String?
+  referrer        String?
+  
+  // Device/browser data
+  userAgent       String?
+  ipAddress       String?
+  deviceType      String?
+  platform        String?
+  
+  // Location data
+  country         String?
+  city            String?
+  latitude        Float?
+  longitude       Float?
+  
+  // Custom dimensions
+  customData      Json?
+  
+  // Metadata
+  orderId         String?
+  rideId          String?
+  vendorId        String?
+  driverId        String?
+  
+  timestamp       DateTime  @default(now())
+  
+  // Relations
+  user            User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([sessionId])
+  @@index([eventType])
+  @@index([eventCategory])
+  @@index([timestamp])
+  @@index([orderId])
+  @@index([rideId])
+}
+
+// System Health and Monitoring
+model SystemHealth {
+  id              String    @id @default(cuid())
+  component       String    // websocket, database, payment, etc.
+  status          String    // healthy, degraded, down
+  
+  // Performance metrics
+  responseTime    Float?    // in milliseconds
+  uptime          Float?    // percentage
+  errorRate       Float?    // percentage
+  
+  // Resource usage
+  cpuUsage        Float?    // percentage
+  memoryUsage     Float?    // percentage
+  diskUsage       Float?    // percentage
+  
+  // Service specific metrics
+  activeConnections Int?    // For WebSocket service
+  messagesSent    Int?      // For notification services
+  messagesQueued  Int?      // For queue services
+  
+  // Metadata
+  details         Json?
+  
+  timestamp       DateTime  @default(now())
+  
+  @@index([component])
+  @@index([status])
+  @@index([timestamp])
+}
+
+// Message Queue for Reliable Delivery
+model MessageQueue {
+  id              String    @id @default(cuid())
+  queueName       String    // notifications, emails, sms, webhooks
+  messageType     String
+  payload         Json
+  
+  // Queue management
+  status          String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  priority        Int       @default(0)
+  maxRetries      Int       @default(3)
+  retryCount      Int       @default(0)
+  
+  // Timing
+  processAt       DateTime  @default(now())
+  processedAt     DateTime?
+  completedAt     DateTime?
+  failedAt        DateTime?
+  
+  // Error handling
+  error           String?
+  errorDetails    Json?
+  
+  // Metadata
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([queueName])
+  @@index([status])
+  @@index([priority])
+  @@index([processAt])
+  @@index([retryCount])
+}
+
+// Real-time Inventory Updates
+model InventoryUpdate {
+  id              String    @id @default(cuid())
+  productId       String
+  vendorId        String
+  
+  // Stock changes
+  previousStock   Int
+  newStock        Int
+  changeAmount    Int       // Positive for increase, negative for decrease
+  changeType      String    // sale, restock, adjustment, expired
+  
+  // Update source
+  orderId         String?
+  userId          String?   // Who made the update
+  source          String?   // system, manual, automated
+  
+  // Broadcasting
+  broadcast       Boolean   @default(true)
+  broadcastAt     DateTime?
+  
+  // Metadata
+  notes           String?
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor          Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  @@index([productId])
+  @@index([vendorId])
+  @@index([createdAt])
+  @@index([changeType])
+}
+
+// Real-time Pricing Updates
+model PricingUpdate {
+  id              String    @id @default(cuid())
+  productId       String
+  vendorId        String
+  
+  // Price changes
+  previousPrice   Float
+  newPrice        Float
+  changeAmount    Float     // Positive for increase, negative for decrease
+  changePercent   Float     // Percentage change
+  
+  // Update source
+  userId          String?   // Who made the update
+  source          String?   // system, manual, automated, dynamic
+  reason          String?   // promotion, surge, discount, etc.
+  
+  // Timing
+  effectiveFrom   DateTime  @default(now())
+  effectiveUntil  DateTime?
+  
+  // Broadcasting
+  broadcast       Boolean   @default(true)
+  broadcastAt     DateTime?
+  
+  // Metadata
+  notes           String?
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor          Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  @@index([productId])
+  @@index([vendorId])
+  @@index([createdAt])
+  @@index([effectiveFrom])
+  @@index([effectiveUntil])
+}
+
+// Admin-specific enums
+enum AdminPermissionLevel {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  SUPPORT
+  VIEWER
+}
+
+
+
+enum DisputeType {
+  ORDER_ISSUE
+  PAYMENT_DISPUTE
+  REFUND_REQUEST
+  VENDOR_COMPLAINT
+  DRIVER_COMPLAINT
+  DELIVERY_ISSUE
+  QUALITY_ISSUE
+  BILLING_DISPUTE
+  ACCOUNT_ISSUE
+  SAFETY_CONCERN
+  FRAUD_REPORT
+  OTHER
+}
+
+enum DisputeCategory {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum CampaignType {
+  DISCOUNT
+  CASHBACK
+  FREE_DELIVERY
+  BOGO
+  PERCENTAGE_OFF
+  FIXED_AMOUNT
+  FIRST_ORDER
+  LOYALTY_BONUS
+  REFERRAL_BONUS
+  SEASONAL
+  FLASH_SALE
+  VENDOR_PROMOTION
+}
+
+enum SystemSettingType {
+  GENERAL
+  PAYMENT
+  NOTIFICATION
+  SECURITY
+  DELIVERY
+  RIDESHARE
+  COMMISSION
+  COMPLIANCE
+  FEATURE_FLAG
+  MAINTENANCE
+}
+
+enum ComplianceActionType {
+  WARNING
+  SUSPENSION
+  TERMINATION
+  FINE
+  REVIEW_REQUIRED
+  EDUCATION_REQUIRED
+  DOCUMENTATION_UPDATE
+  AUDIT_REQUIRED
+}
+
+enum RevenueReportType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+
+
+enum BulkOperationType {
+  USER_UPDATE
+  ORDER_UPDATE
+  VENDOR_UPDATE
+  DRIVER_UPDATE
+  PRODUCT_UPDATE
+  NOTIFICATION_SEND
+  EXPORT_DATA
+  IMPORT_DATA
+  BULK_DELETE
+  BULK_APPROVAL
+}
+
+// Admin-specific models
+model AdminPermission {
+  id              String                @id @default(cuid())
+  userId          String
+  level           AdminPermissionLevel
+  permissions     String[]              // Array of specific permissions
+  canManageUsers  Boolean               @default(false)
+  canManageOrders Boolean               @default(false)
+  canManageVendors Boolean              @default(false)
+  canManageDrivers Boolean              @default(false)
+  canViewReports  Boolean               @default(false)
+  canManageSettings Boolean             @default(false)
+  canManageDisputes Boolean             @default(false)
+  canAccessFinancials Boolean           @default(false)
+  canManageCampaigns Boolean            @default(false)
+  canViewAuditLogs Boolean              @default(false)
+  canBulkOperations Boolean             @default(false)
+  canSystemHealth Boolean               @default(false)
+  ipWhitelist     String[]              // Allowed IP addresses
+  isActive        Boolean               @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId])
+  @@index([level])
+  @@index([isActive])
+}
+
+model AdminAuditLog {
+  id              String    @id @default(cuid())
+  userId          String
+  action          String
+  resource        String?
+  resourceId      String?
+  oldValues       Json?
+  newValues       Json?
+  description     String?
+  ipAddress       String?
+  userAgent       String?
+  method          String?   // HTTP method
+  endpoint        String?   // API endpoint
+  statusCode      Int?
+  duration        Int?      // Response time in ms
+  metadata        Json?
+  timestamp       DateTime  @default(now())
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([timestamp])
+}
+
+model AdminSession {
+  id              String    @id @default(cuid())
+  userId          String
+  sessionToken    String    @unique
+  ipAddress       String
+  userAgent       String?
+  location        String?
+  device          String?
+  browser         String?
+  isActive        Boolean   @default(true)
+  lastActivity    DateTime  @default(now())
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([sessionToken])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model Dispute {
+  id              String         @id @default(cuid())
+  disputeNumber   String         @unique
+  type            DisputeType
+  category        DisputeCategory @default(MEDIUM)
+  status          DisputeStatus  @default(CREATED)
+  priority        Int            @default(3) // 1-5 scale
+  subject         String
+  description     String
+  evidence        String[]       // URLs to evidence files
+  metadata        Json?
+  
+  // Involved parties
+  customerId      String?
+  vendorId        String?
+  driverId        String?
+  orderId         String?
+  rideId          String?
+  
+  // Resolution details
+  resolution      String?
+  resolutionNotes String?
+  refundAmount    Float?
+  compensationAmount Float?
+  
+  // Tracking
+  reportedAt      DateTime       @default(now())
+  acknowledgedAt  DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  escalatedAt     DateTime?
+  
+  // Assignment
+  assignedTo      String?
+  assignedAt      DateTime?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  customer        User?          @relation("CustomerDisputes", fields: [customerId], references: [id])
+  vendor          Vendor?        @relation(fields: [vendorId], references: [id])
+  driver          Driver?        @relation(fields: [driverId], references: [id])
+  order           Order?         @relation(fields: [orderId], references: [id])
+  ride            Ride?          @relation(fields: [rideId], references: [id])
+  assignee        User?          @relation("AssignedDisputes", fields: [assignedTo], references: [id])
+  reviews         DisputeReview[]
+  
+  @@index([status])
+  @@index([type])
+  @@index([category])
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([driverId])
+  @@index([orderId])
+  @@index([assignedTo])
+}
+
+model DisputeReview {
+  id              String    @id @default(cuid())
+  disputeId       String
+  reviewerId      String
+  action          String
+  comment         String?
+  evidence        String[]
+  internalNotes   String?
+  timeSpent       Int?      // minutes
+  createdAt       DateTime  @default(now())
+  
+  dispute         Dispute   @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  reviewer        User      @relation(fields: [reviewerId], references: [id])
+  
+  @@index([disputeId])
+  @@index([reviewerId])
+}
+
+model SystemSetting {
+  id              String            @id @default(cuid())
+  key             String            @unique
+  value           String?
+  type            SystemSettingType
+  category        String
+  description     String?
+  isPublic        Boolean           @default(false)
+  isEditable      Boolean           @default(true)
+  validationRules Json?
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  
+  creator         User?             @relation("SystemSettingCreator", fields: [createdBy], references: [id])
+  updater         User?             @relation("SystemSettingUpdater", fields: [updatedBy], references: [id])
+  
+  @@index([type])
+  @@index([category])
+  @@index([isPublic])
+}
+
+model PromotionalCampaign {
+  id                  String          @id @default(cuid())
+  name                String
+  description         String?
+  type                CampaignType
+  status              CampaignStatus  @default(DRAFT)
+  
+  // Discount details
+  discountType        String?         // PERCENTAGE, FIXED_AMOUNT, FREE_DELIVERY
+  discountValue       Float?
+  minimumOrderAmount  Float?
+  maximumDiscountAmount Float?
+  
+  // Targeting
+  targetAudience      String[]        // USER_SEGMENTS, LOCATIONS, etc.
+  targetUserRoles     UserRole[]
+  targetLocations     String[]
+  targetVendors       String[]
+  targetProducts      String[]
+  
+  // Scheduling
+  scheduledStart      DateTime?
+  scheduledEnd        DateTime?
+  actualStart         DateTime?
+  actualEnd           DateTime?
+  
+  // Usage limits
+  totalUsageLimit     Int?
+  perUserUsageLimit   Int?
+  currentUsageCount   Int             @default(0)
+  
+  // Budget
+  budget              Float?
+  currentSpend        Float           @default(0)
+  costPerUsage        Float?
+  
+  // Analytics
+  impressions         Int             @default(0)
+  clicks              Int             @default(0)
+  conversions         Int             @default(0)
+  revenue             Float           @default(0)
+  
+  // Auto-generated promo code
+  promoCode           String?         @unique
+  
+  // Metadata
+  metadata            Json?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  createdBy           String
+  updatedBy           String?
+  
+  creator             User            @relation("CampaignCreator", fields: [createdBy], references: [id])
+  updater             User?           @relation("CampaignUpdater", fields: [updatedBy], references: [id])
+  
+  @@index([status])
+  @@index([type])
+  @@index([scheduledStart])
+  @@index([scheduledEnd])
+  @@index([createdBy])
+}
+
+model RevenueReport {
+  id              String            @id @default(cuid())
+  type            RevenueReportType
+  period          String            // "2024-01", "2024-W01", etc.
+  startDate       DateTime
+  endDate         DateTime
+  
+  // Revenue breakdown
+  totalRevenue    Float             @default(0)
+  orderRevenue    Float             @default(0)
+  deliveryRevenue Float             @default(0)
+  rideRevenue     Float             @default(0)
+  
+  // Commission breakdown
+  vendorCommission Float            @default(0)
+  driverCommission Float            @default(0)
+  platformRevenue  Float            @default(0)
+  
+  // Volume metrics
+  totalOrders     Int               @default(0)
+  totalRides      Int               @default(0)
+  totalUsers      Int               @default(0)
+  activeVendors   Int               @default(0)
+  activeDrivers   Int               @default(0)
+  
+  // Performance metrics
+  avgOrderValue   Float             @default(0)
+  avgRideValue    Float             @default(0)
+  customerRetention Float           @default(0)
+  
+  // Costs
+  operatingCosts  Float             @default(0)
+  marketingCosts  Float             @default(0)
+  paymentFees     Float             @default(0)
+  refunds         Float             @default(0)
+  
+  // Profit
+  grossProfit     Float             @default(0)
+  netProfit       Float             @default(0)
+  profitMargin    Float             @default(0)
+  
+  // Detailed data
+  data            Json?
+  metadata        Json?
+  
+  generatedAt     DateTime          @default(now())
+  generatedBy     String
+  
+  generator       User              @relation(fields: [generatedBy], references: [id])
+  
+  @@unique([type, period])
+  @@index([type])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model ComplianceAction {
+  id              String                @id @default(cuid())
+  type            ComplianceActionType
+  targetType      String                // USER, VENDOR, DRIVER, ORDER
+  targetId        String
+  reason          String
+  description     String?
+  severity        String                // LOW, MEDIUM, HIGH, CRITICAL
+  evidence        String[]
+  
+  // Action details
+  actionTaken     String?
+  effectiveDate   DateTime?
+  expirationDate  DateTime?
+  
+  // Financial impact
+  fineAmount      Float?
+  refundAmount    Float?
+  
+  // Follow-up
+  followUpRequired Boolean              @default(false)
+  followUpDate    DateTime?
+  followUpNotes   String?
+  
+  // Status
+  isActive        Boolean               @default(true)
+  isAppealed      Boolean               @default(false)
+  appealNotes     String?
+  
+  // Metadata
+  metadata        Json?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  createdBy       String
+  updatedBy       String?
+  
+  creator         User                  @relation(fields: [createdBy], references: [id])
+  
+  @@index([type])
+  @@index([targetType])
+  @@index([targetId])
+  @@index([severity])
+  @@index([isActive])
+  @@index([createdBy])
+}
+
+model AdminNotification {
+  id              String    @id @default(cuid())
+  title           String
+  message         String
+  type            String    // INFO, WARNING, ERROR, SUCCESS
+  priority        String    // LOW, MEDIUM, HIGH, URGENT
+  category        String    // SYSTEM, SECURITY, COMPLIANCE, etc.
+  
+  // Targeting
+  targetRoles     AdminPermissionLevel[]
+  targetUsers     String[]
+  
+  // Status
+  isRead          Boolean   @default(false)
+  isArchived      Boolean   @default(false)
+  expiresAt       DateTime?
+  
+  // Actions
+  actionRequired  Boolean   @default(false)
+  actionUrl       String?
+  actionLabel     String?
+  
+  // Metadata
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  readAt          DateTime?
+  
+  @@index([type])
+  @@index([priority])
+  @@index([category])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model BulkOperation {
+  id              String              @id @default(cuid())
+  type            BulkOperationType
+  name            String
+  description     String?
+  
+  // Target data
+  targetType      String              // users, orders, vendors, etc.
+  targetCriteria  Json?               // Filter criteria
+  targetIds       String[]            // Specific IDs if applicable
+  
+  // Operation details
+  operation       String              // update, delete, approve, etc.
+  operationData   Json?               // Data for the operation
+  
+  // Status
+  status          String              @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  progress        Int                 @default(0)         // 0-100
+  totalRecords    Int                 @default(0)
+  processedRecords Int                @default(0)
+  successCount    Int                 @default(0)
+  errorCount      Int                 @default(0)
+  
+  // Results
+  results         Json?
+  errors          Json?
+  summary         String?
+  
+  // Scheduling
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  
+  // Metadata
+  metadata        Json?
+  createdAt       DateTime            @default(now())
+  createdBy       String
+  
+  creator         User                @relation(fields: [createdBy], references: [id])
+  
+  @@index([type])
+  @@index([status])
+  @@index([createdBy])
+  @@index([scheduledAt])
+}
+
+
+
+model CommissionStructure {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  
+  // Applicability
+  serviceType     String    // DELIVERY, RIDESHARE, BOTH
+  entityType      String    // VENDOR, DRIVER, GLOBAL
+  entityId        String?   // Specific vendor/driver ID
+  
+  // Commission rates
+  baseRate        Float     // Base commission percentage
+  tieredRates     Json?     // Volume-based tiers
+  
+  // Conditions
+  minimumOrder    Float?
+  maximumOrder    Float?
+  timeBasedRates  Json?     // Different rates for different times
+  locationRates   Json?     // Different rates for different locations
+  
+  // Validity
+  isActive        Boolean   @default(true)
+  validFrom       DateTime  @default(now())
+  validUntil      DateTime?
+  
+  // Metadata
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       String
+  updatedBy       String?
+  
+  creator         User      @relation(fields: [createdBy], references: [id])
+  
+  @@index([serviceType])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([isActive])
+  @@index([validFrom])
+  @@index([validUntil])
+}
+
+
+
+

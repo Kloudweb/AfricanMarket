@@ -35,7 +35,13 @@ import {
   Heart,
   MapPin
 } from "lucide-react"
-import { UserRole } from "@prisma/client"
+// Temporary workaround for UserRole
+enum UserRole {
+  CUSTOMER = "CUSTOMER",
+  VENDOR = "VENDOR",
+  DRIVER = "DRIVER",
+  ADMIN = "ADMIN"
+}
 
 export default function Navigation() {
   const { data: session, status } = useSession()

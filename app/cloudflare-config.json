@@ -1,0 +1,120 @@
+
+{
+  "name": "AfricanMarket CDN Configuration",
+  "description": "Cloudflare configuration for optimal performance",
+  "settings": {
+    "security_level": "medium",
+    "cache_level": "aggressive",
+    "always_online": "on",
+    "development_mode": "off",
+    "ipv6": "on",
+    "browser_cache_ttl": 31536000,
+    "challenge_ttl": 1800,
+    "always_use_https": "on",
+    "opportunistic_encryption": "on",
+    "automatic_https_rewrites": "on",
+    "ssl": "full",
+    "min_tls_version": "1.2",
+    "tls_1_3": "on",
+    "http2": "on",
+    "http3": "on",
+    "zero_rtt": "on",
+    "early_hints": "on",
+    "brotli": "on",
+    "minify": {
+      "css": "on",
+      "html": "on",
+      "js": "on"
+    },
+    "polish": "lossless",
+    "webp": "on",
+    "mirage": "on",
+    "rocket_loader": "off",
+    "browser_check": "on"
+  },
+  "page_rules": [
+    {
+      "targets": [
+        {
+          "target": "url",
+          "constraint": {
+            "operator": "matches",
+            "value": "*/api/*"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "id": "cache_level",
+          "value": "bypass"
+        },
+        {
+          "id": "browser_cache_ttl",
+          "value": 0
+        }
+      ],
+      "priority": 1,
+      "status": "active"
+    },
+    {
+      "targets": [
+        {
+          "target": "url",
+          "constraint": {
+            "operator": "matches",
+            "value": "*/_next/static/*"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "id": "cache_level",
+          "value": "cache_everything"
+        },
+        {
+          "id": "browser_cache_ttl",
+          "value": 31536000
+        },
+        {
+          "id": "edge_cache_ttl",
+          "value": 31536000
+        }
+      ],
+      "priority": 2,
+      "status": "active"
+    },
+    {
+      "targets": [
+        {
+          "target": "url",
+          "constraint": {
+            "operator": "matches",
+            "value": "*/images/*"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "id": "cache_level",
+          "value": "cache_everything"
+        },
+        {
+          "id": "browser_cache_ttl",
+          "value": 604800
+        },
+        {
+          "id": "edge_cache_ttl",
+          "value": 604800
+        }
+      ],
+      "priority": 3,
+      "status": "active"
+    }
+  ],
+  "workers": [
+    {
+      "name": "cache-optimization",
+      "script": "addEventListener('fetch', event => { event.respondWith(handleRequest(event.request)); }); async function handleRequest(request) { const url = new URL(request.url); if (url.pathname.startsWith('/api/')) { return fetch(request); } const cache = caches.default; const cacheKey = new Request(url.toString(), request); let response = await cache.match(cacheKey); if (!response) { response = await fetch(request); const responseHeaders = new Headers(response.headers); if (response.status === 200) { responseHeaders.set('Cache-Control', 'public, max-age=86400'); response = new Response(response.body, { status: response.status, statusText: response.statusText, headers: responseHeaders }); event.waitUntil(cache.put(cacheKey, response.clone())); } } return response; }"
+    }
+  ]
+}

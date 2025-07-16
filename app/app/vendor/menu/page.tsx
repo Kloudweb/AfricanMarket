@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { UserRole } from "@/lib/types";
 import { prisma } from "@/lib/db";
 import VendorMenuManager from "@/components/vendor/menu-manager";
 

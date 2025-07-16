@@ -19,7 +19,7 @@ import {
   MapPin
 } from "lucide-react"
 import Link from "next/link"
-import { UserRole } from "@prisma/client"
+import { UserRole } from "@/lib/types"
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)

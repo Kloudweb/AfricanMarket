@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/db"
-import { UserRole, KYCStatus } from "@prisma/client"
+import { UserRole, KYCStatus } from "@/lib/types"
 import { AuthUtils } from "@/lib/auth-utils"
 import { verificationService } from "@/lib/verification-service"
 import { emailService } from "@/lib/email-service"

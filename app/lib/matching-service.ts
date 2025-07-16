@@ -5,7 +5,7 @@ import {
   ServiceType, 
   AssignmentStatus, 
   MatchingAlgorithmType 
-} from '@prisma/client'
+} from './types'
 
 export interface MatchingLocation {
   latitude: number
@@ -730,7 +730,7 @@ export class MatchingService {
           latitude: item.ride.destinationLatitude,
           longitude: item.ride.destinationLongitude
         } : undefined,
-        serviceType: item.assignmentType === 'ORDER' ? 'FOOD_DELIVERY' : 'RIDESHARE',
+        serviceType: item.assignmentType === 'ORDER' ? ServiceType.FOOD_DELIVERY : ServiceType.RIDESHARE,
         estimatedValue: item.order?.totalAmount || item.ride?.estimatedFare,
         priority: item.priority
       }

@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { matchingService } from '@/lib/matching-service'
 import { prisma } from '@/lib/db'
-import { DriverAvailabilityStatusType } from '@prisma/client'
+import { DriverAvailabilityStatusType } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     // Validate status
     const validStatuses: DriverAvailabilityStatusType[] = [
-      'ONLINE', 'OFFLINE', 'BUSY', 'AVAILABLE', 'BREAK', 'EMERGENCY', 'MAINTENANCE'
+      DriverAvailabilityStatusType.ONLINE, DriverAvailabilityStatusType.OFFLINE, DriverAvailabilityStatusType.BUSY, DriverAvailabilityStatusType.AVAILABLE, DriverAvailabilityStatusType.BREAK, DriverAvailabilityStatusType.EMERGENCY, DriverAvailabilityStatusType.MAINTENANCE
     ]
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })

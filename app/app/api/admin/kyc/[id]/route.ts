@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { verificationService } from "@/lib/verification-service"
-import { KYCStatus } from "@prisma/client"
+import { KYCStatus } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 

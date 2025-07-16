@@ -3,7 +3,7 @@ import { prisma } from './db'
 import { AuthUtils } from './auth-utils'
 import { emailService } from './email-service'
 import { smsService } from './sms-service'
-import { TokenType, UserRole, KYCStatus } from '@prisma/client'
+import { TokenType, UserRole, KYCStatus } from './types'
 
 export class VerificationService {
   // Send email verification

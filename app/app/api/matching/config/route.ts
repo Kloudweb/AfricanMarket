@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { MatchingAlgorithmType } from '@prisma/client'
+import { MatchingAlgorithmType } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate algorithm type
-    const validTypes: MatchingAlgorithmType[] = ['PROXIMITY_BASED', 'PERFORMANCE_BASED', 'HYBRID', 'MACHINE_LEARNING']
+    const validTypes: MatchingAlgorithmType[] = [MatchingAlgorithmType.PROXIMITY_BASED, MatchingAlgorithmType.PERFORMANCE_BASED, MatchingAlgorithmType.HYBRID, MatchingAlgorithmType.MACHINE_LEARNING]
     if (!validTypes.includes(algorithmType)) {
       return NextResponse.json({ error: 'Invalid algorithm type' }, { status: 400 })
     }

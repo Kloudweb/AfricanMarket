@@ -1,7 +1,7 @@
 
 import { prisma } from '@/lib/db'
 import { trackingService } from '@/lib/tracking-service'
-import { notificationService } from '@/lib/notification-service'
+import { NotificationService } from '@/lib/notification-service'
 
 export interface DriverLocationUpdate {
   driverId: string

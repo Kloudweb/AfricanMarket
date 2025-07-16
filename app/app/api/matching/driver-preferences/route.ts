@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { ServiceType } from '@prisma/client'
+import { ServiceType } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
 
     // Validate service types
     if (serviceTypes && Array.isArray(serviceTypes)) {
-      const validTypes: ServiceType[] = ['FOOD_DELIVERY', 'RIDESHARE', 'BOTH']
+      const validTypes: ServiceType[] = [ServiceType.FOOD_DELIVERY, ServiceType.RIDESHARE, ServiceType.BOTH]
       const invalidTypes = serviceTypes.filter(type => !validTypes.includes(type))
       if (invalidTypes.length > 0) {
         return NextResponse.json({ error: `Invalid service types: ${invalidTypes.join(', ')}` }, { status: 400 })

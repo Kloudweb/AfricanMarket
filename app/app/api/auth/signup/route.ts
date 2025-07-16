@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!email || !password || !confirmPassword || !name || !acceptTerms) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: email, password, name, and terms acceptance are required" },
         { status: 400 }
       )
     }
@@ -124,8 +124,8 @@ export async function POST(request: NextRequest) {
       lastName,
       role: role || UserRole.CUSTOMER,
       phone: phone ? AuthUtils.formatPhoneNumber(phone) : undefined,
-      acceptTerms,
-      acceptMarketing: acceptMarketing || false
+      // acceptTerms is not stored in database - only used for validation
+      // acceptMarketing is not stored in database - only used for validation
     }
 
     // Create user in transaction
@@ -182,35 +182,51 @@ export async function POST(request: NextRequest) {
     })
 
     // Create audit log
-    await AuthUtils.createAuditLog(
-      result.id,
-      'SIGNUP',
-      'user',
-      result.id,
-      { 
-        role: result.role,
-        method: 'credentials',
-        hasVendorProfile: role === UserRole.VENDOR,
-        hasDriverProfile: role === UserRole.DRIVER
-      },
-      ipAddress,
-      userAgent
-    )
+    try {
+      await AuthUtils.createAuditLog(
+        result.id,
+        'SIGNUP',
+        'user',
+        result.id,
+        { 
+          role: result.role,
+          method: 'credentials',
+          hasVendorProfile: role === UserRole.VENDOR,
+          hasDriverProfile: role === UserRole.DRIVER
+        },
+        ipAddress,
+        userAgent
+      )
+    } catch (error) {
+      console.error("Audit log error:", error)
+    }
 
     // Initialize KYC application for vendors and drivers
-    if (role === UserRole.VENDOR || role === UserRole.DRIVER) {
-      await verificationService.initializeKYCApplication(result.id)
+    try {
+      if (role === UserRole.VENDOR || role === UserRole.DRIVER) {
+        await verificationService.initializeKYCApplication(result.id)
+      }
+    } catch (error) {
+      console.error("KYC initialization error:", error)
     }
 
     // Send welcome email
-    await emailService.sendWelcomeEmail(
-      result.email,
-      result.name || 'User',
-      result.role
-    )
+    try {
+      await emailService.sendWelcomeEmail(
+        result.email,
+        result.name || 'User',
+        result.role
+      )
+    } catch (error) {
+      console.error("Welcome email error:", error)
+    }
 
     // Send email verification
-    await verificationService.sendEmailVerification(result.id)
+    try {
+      await verificationService.sendEmailVerification(result.id)
+    } catch (error) {
+      console.error("Email verification error:", error)
+    }
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = result

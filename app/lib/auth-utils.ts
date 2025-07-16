@@ -212,17 +212,23 @@ export class AuthUtils {
 
   // Get user's IP address from request
   static getIPAddress(req: any): string {
-    return req.headers['x-forwarded-for'] || 
-           req.headers['x-real-ip'] || 
-           req.connection.remoteAddress || 
-           req.socket.remoteAddress || 
-           (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
-           '127.0.0.1'
+    const forwardedFor = req.headers.get?.('x-forwarded-for') || req.headers['x-forwarded-for']
+    const realIp = req.headers.get?.('x-real-ip') || req.headers['x-real-ip']
+    
+    if (forwardedFor) {
+      return forwardedFor.split(',')[0].trim()
+    }
+    
+    if (realIp) {
+      return realIp
+    }
+    
+    return '127.0.0.1'
   }
 
   // Get user agent from request
   static getUserAgent(req: any): string {
-    return req.headers['user-agent'] || 'Unknown'
+    return req.headers.get?.('user-agent') || req.headers['user-agent'] || 'Unknown'
   }
 
   // Create audit log entry

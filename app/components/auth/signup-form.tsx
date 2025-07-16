@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, Mail, Lock, User, Phone, UserCheck } from "lucide-react"
 import { toast } from "sonner"
 import { UserRole } from "@prisma/client"
@@ -16,9 +17,10 @@ import { UserRole } from "@prisma/client"
 export function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [acceptTerms, setAcceptTerms] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const defaultRole = searchParams.get("role") || "customer"
+  const defaultRole = searchParams.get("role")?.toUpperCase() || "CUSTOMER"
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -32,12 +34,19 @@ export function SignUpForm() {
       name: formData.get("name") as string,
       phone: formData.get("phone") as string,
       role: formData.get("role") as UserRole,
+      acceptTerms,
     }
 
     const confirmPassword = formData.get("confirmPassword") as string
     
     if (userData.password !== confirmPassword) {
       setError("Passwords do not match")
+      setIsLoading(false)
+      return
+    }
+
+    if (!acceptTerms) {
+      setError("You must accept the terms and conditions to create an account")
       setIsLoading(false)
       return
     }
@@ -140,9 +149,9 @@ export function SignUpForm() {
             <SelectValue placeholder="Select account type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="customer">Customer</SelectItem>
-            <SelectItem value="vendor">Vendor</SelectItem>
-            <SelectItem value="driver">Driver</SelectItem>
+            <SelectItem value="CUSTOMER">Customer</SelectItem>
+            <SelectItem value="VENDOR">Vendor</SelectItem>
+            <SelectItem value="DRIVER">Driver</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -177,6 +186,25 @@ export function SignUpForm() {
             disabled={isLoading}
           />
         </div>
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="acceptTerms"
+          checked={acceptTerms}
+          onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+          disabled={isLoading}
+        />
+        <Label htmlFor="acceptTerms" className="text-sm">
+          I agree to the{" "}
+          <a href="#" className="text-orange-500 hover:text-orange-600 underline">
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <a href="#" className="text-orange-500 hover:text-orange-600 underline">
+            Privacy Policy
+          </a>
+        </Label>
       </div>
       
       <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" disabled={isLoading}>

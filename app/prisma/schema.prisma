@@ -115,6 +115,15 @@ model User {
   verificationTokens VerificationToken[]
   documents          Document[]
   kycApplications    KYCApplication[]
+  
+  // Browse and Discovery relations
+  vendorFavorites    VendorFavorite[]
+  productFavorites   ProductFavorite[]
+  vendorViews        VendorView[]
+  productViews       ProductView[]
+  searchQueries      SearchQuery[]
+  recentlyViewed     RecentlyViewed[]
+  preferences        UserPreferences?
 }
 
 model Account {
@@ -190,6 +199,22 @@ model Vendor {
   deliveryFee           Float?
   deliveryTime          String?            // e.g., "30-45 minutes"
   
+  // Discovery and popularity features
+  isFeatured            Boolean            @default(false)
+  featuredUntil         DateTime?
+  popularityScore       Float              @default(0)
+  viewCount             Int                @default(0)
+  orderCount            Int                @default(0)
+  lastOrderAt           DateTime?
+  averageOrderValue     Float              @default(0)
+  
+  // Search and filtering
+  searchKeywords        String[]           // For search optimization
+  tags                  String[]           // Custom tags
+  dietaryOptions        String[]           // vegetarian, vegan, halal, etc.
+  priceRange            String?            // "$", "$$", "$$$", "$$$$"
+  isCurrentlyOpen       Boolean            @default(true)
+  
   // Social media
   facebookUrl           String?
   instagramUrl          String?
@@ -228,6 +253,16 @@ model Vendor {
   hours        VendorHours[]
   notifications VendorNotification[]
   settings     VendorSettings?
+  favorites    VendorFavorite[]
+  views        VendorView[]
+  
+  @@index([isActive, verificationStatus])
+  @@index([isFeatured, popularityScore])
+  @@index([businessName, businessType])
+  @@index([cuisineTypes])
+  @@index([city, province])
+  @@index([rating, totalReviews])
+  @@index([isCurrentlyOpen])
 }
 
 model Product {
@@ -260,6 +295,17 @@ model Product {
   isPopular   Boolean  @default(false)
   displayOrder Int?    // For menu ordering
   
+  // Discovery and popularity features
+  viewCount   Int      @default(0)
+  orderCount  Int      @default(0)
+  popularityScore Float @default(0)
+  lastOrderAt DateTime?
+  rating      Float    @default(0)
+  totalReviews Int     @default(0)
+  
+  // Search and filtering
+  searchKeywords String[] // For search optimization
+  
   // Pricing and promotions
   originalPrice Float?  // For discounts
   discountPercent Float? // Discount percentage
@@ -281,10 +327,18 @@ model Product {
   orderItems OrderItem[]
   reviews    Review[]
   inventoryLogs InventoryLog[]
+  favorites  ProductFavorite[]
+  views      ProductView[]
   
   @@index([vendorId])
   @@index([categoryId])
   @@index([isAvailable])
+  @@index([name, description])
+  @@index([category])
+  @@index([tags])
+  @@index([isPopular, popularityScore])
+  @@index([rating, totalReviews])
+  @@index([price])
 }
 
 model Driver {
@@ -970,4 +1024,158 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([timestamp])
+}
+
+// Browse and Discovery Models
+
+model VendorFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  vendorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vendorId])
+  @@index([userId])
+  @@index([vendorId])
+}
+
+model ProductFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+model VendorView {
+  id        String   @id @default(cuid())
+  userId    String?  // Null for anonymous views
+  vendorId  String
+  ipAddress String?
+  userAgent String?
+  referrer  String?
+  sessionId String?
+  timestamp DateTime @default(now())
+
+  // Relations
+  user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([vendorId])
+  @@index([timestamp])
+  @@index([sessionId])
+}
+
+model ProductView {
+  id        String   @id @default(cuid())
+  userId    String?  // Null for anonymous views
+  productId String
+  ipAddress String?
+  userAgent String?
+  referrer  String?
+  sessionId String?
+  timestamp DateTime @default(now())
+
+  // Relations
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([productId])
+  @@index([timestamp])
+  @@index([sessionId])
+}
+
+model SearchQuery {
+  id         String   @id @default(cuid())
+  userId     String?  // Null for anonymous searches
+  query      String
+  filters    Json?    // Applied filters
+  resultsCount Int    @default(0)
+  clickedResults Json? // Which results were clicked
+  ipAddress  String?
+  userAgent  String?
+  sessionId  String?
+  timestamp  DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([query])
+  @@index([timestamp])
+  @@index([sessionId])
+}
+
+model RecentlyViewed {
+  id        String   @id @default(cuid())
+  userId    String
+  itemType  String   // VENDOR, PRODUCT
+  itemId    String
+  viewedAt  DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemType, itemId])
+  @@index([userId])
+  @@index([viewedAt])
+}
+
+model FeaturedContent {
+  id          String   @id @default(cuid())
+  type        String   // VENDOR, PRODUCT, BANNER, PROMOTION
+  itemId      String?  // ID of the featured item
+  title       String
+  description String?
+  imageUrl    String?
+  link        String?
+  priority    Int      @default(0)
+  isActive    Boolean  @default(true)
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  clicks      Int      @default(0)
+  views       Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type, isActive])
+  @@index([priority])
+  @@index([startDate, endDate])
+}
+
+model UserPreferences {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  favoriteCategories String[]
+  favoriteCuisines String[]
+  dietaryRestrictions String[]
+  priceRange       String?  // "$", "$$", "$$$", "$$$$"
+  maxDeliveryTime  Int?     // in minutes
+  deliveryRadius   Float?   // in kilometers
+  defaultAddress   String?
+  notificationPreferences Json?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

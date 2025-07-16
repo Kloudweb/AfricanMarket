@@ -11,8 +11,13 @@ import {
   Minus, 
   Clock, 
   Flame,
-  ShoppingCart
+  ShoppingCart,
+  Heart,
+  Star,
+  Leaf,
+  Award
 } from "lucide-react"
+import { useSession } from 'next-auth/react'
 
 interface ProductCardProps {
   product: {
@@ -25,11 +30,31 @@ interface ProductCardProps {
     ingredients?: string | null
     isSpicy: boolean
     prepTime?: number | null
+    rating?: number
+    totalReviews?: number
+    isPopular?: boolean
+    dietaryInfo?: string[]
+    vendor?: {
+      id: string
+      businessName: string
+      logo?: string
+      rating?: number
+    }
+    isFavorited?: boolean
   }
+  className?: string
+  showVendorInfo?: boolean
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ 
+  product, 
+  className = '', 
+  showVendorInfo = false 
+}: ProductCardProps) {
+  const { data: session } = useSession()
   const [quantity, setQuantity] = useState(0)
+  const [isFavorited, setIsFavorited] = useState(product.isFavorited || false)
+  const [isToggling, setIsToggling] = useState(false)
 
   const addToCart = () => {
     setQuantity(prev => prev + 1)
@@ -41,8 +66,43 @@ export function ProductCard({ product }: ProductCardProps) {
     // TODO: Implement cart functionality
   }
 
+  const toggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (!session) {
+      window.location.href = '/auth/signin'
+      return
+    }
+
+    setIsToggling(true)
+    
+    try {
+      const method = isFavorited ? 'DELETE' : 'POST'
+      const url = isFavorited 
+        ? `/api/favorites/products/${product.id}`
+        : '/api/favorites/products'
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: method === 'POST' ? JSON.stringify({ productId: product.id }) : undefined,
+      })
+
+      if (response.ok) {
+        setIsFavorited(!isFavorited)
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+    } finally {
+      setIsToggling(false)
+    }
+  }
+
   return (
-    <Card className="group hover:shadow-lg transition-shadow duration-300">
+    <Card className={`group hover:shadow-lg transition-shadow duration-300 ${className}`}>
       <div className="relative">
         <div className="relative aspect-video bg-gradient-to-br from-orange-100 to-green-100 overflow-hidden rounded-t-lg">
           <Image
@@ -53,7 +113,13 @@ export function ProductCard({ product }: ProductCardProps) {
           />
           
           {/* Badges */}
-          <div className="absolute top-2 left-2 flex space-x-1">
+          <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+            {product.isPopular && (
+              <Badge className="bg-yellow-500 text-white">
+                <Award className="w-3 h-3 mr-1" />
+                Popular
+              </Badge>
+            )}
             {product.isSpicy && (
               <Badge className="bg-red-500 text-white">
                 <Flame className="w-3 h-3 mr-1" />
@@ -66,11 +132,32 @@ export function ProductCard({ product }: ProductCardProps) {
                 {product.prepTime}m
               </Badge>
             )}
+            {product.dietaryInfo?.includes('Vegetarian') && (
+              <Badge className="bg-green-500 text-white">
+                <Leaf className="w-3 h-3 mr-1" />
+                Veg
+              </Badge>
+            )}
+          </div>
+
+          {/* Favorite Button */}
+          <div className="absolute top-2 right-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleFavorite}
+              disabled={isToggling}
+              className="h-8 w-8 p-0 bg-white/80 hover:bg-white"
+            >
+              <Heart 
+                className={`h-4 w-4 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
+              />
+            </Button>
           </div>
         </div>
       </div>
 
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="text-lg text-gray-900 group-hover:text-orange-600 transition-colors">
@@ -79,6 +166,15 @@ export function ProductCard({ product }: ProductCardProps) {
             <CardDescription className="text-sm text-gray-600 mt-1">
               {product.description}
             </CardDescription>
+            
+            {/* Rating */}
+            {product.rating && product.totalReviews && (
+              <div className="flex items-center space-x-1 mt-2">
+                <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                <span className="text-sm font-medium">{product.rating.toFixed(1)}</span>
+                <span className="text-xs text-gray-500">({product.totalReviews})</span>
+              </div>
+            )}
           </div>
           <div className="text-right">
             <div className="text-lg font-bold text-orange-600">
@@ -89,6 +185,29 @@ export function ProductCard({ product }: ProductCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Vendor Info */}
+        {showVendorInfo && product.vendor && (
+          <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
+            <div className="relative w-8 h-8 bg-white rounded-full overflow-hidden">
+              <Image
+                src={product.vendor.logo || '/api/placeholder/32/32'}
+                alt={product.vendor.businessName}
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium">{product.vendor.businessName}</p>
+              {product.vendor.rating && (
+                <div className="flex items-center space-x-1">
+                  <Star className="h-3 w-3 text-yellow-500 fill-current" />
+                  <span className="text-xs text-gray-500">{product.vendor.rating.toFixed(1)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Ingredients */}
         {product.ingredients && (
           <div>
@@ -98,6 +217,22 @@ export function ProductCard({ product }: ProductCardProps) {
             <p className="text-sm text-gray-600 line-clamp-2">
               {product.ingredients}
             </p>
+          </div>
+        )}
+
+        {/* Dietary Info */}
+        {product.dietaryInfo && product.dietaryInfo.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {product.dietaryInfo.slice(0, 3).map((info) => (
+              <Badge key={info} variant="secondary" className="text-xs">
+                {info}
+              </Badge>
+            ))}
+            {product.dietaryInfo.length > 3 && (
+              <Badge variant="secondary" className="text-xs">
+                +{product.dietaryInfo.length - 3} more
+              </Badge>
+            )}
           </div>
         )}
 

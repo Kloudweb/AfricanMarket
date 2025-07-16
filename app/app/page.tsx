@@ -7,6 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import Navigation from "@/components/navigation"
 import Footer from "@/components/footer"
+import { AdvancedSearch } from "@/components/marketplace/advanced-search"
+import { FeaturedVendors } from "@/components/marketplace/featured-vendors"
+import { TrendingSearches } from "@/components/marketplace/trending-searches"
+import { RecentlyViewed } from "@/components/marketplace/recently-viewed"
 import { 
   ArrowRight, 
   Clock, 
@@ -18,7 +22,9 @@ import {
   Shield,
   Star,
   ChefHat,
-  Truck
+  Truck,
+  Search,
+  TrendingUp
 } from "lucide-react"
 
 export default function HomePage() {
@@ -40,8 +46,16 @@ export default function HomePage() {
                   <span className="text-orange-500 block">Marketplace</span>
                 </h1>
                 <p className="text-xl text-gray-600 leading-relaxed">
-                  Connecting the African community in Newfoundland with authentic food delivery and reliable rideshare services.
+                  Discover authentic African cuisine and connect with your community through food delivery and rideshare services.
                 </p>
+              </div>
+              
+              {/* Enhanced Search Bar */}
+              <div className="max-w-2xl">
+                <AdvancedSearch 
+                  placeholder="Search for restaurants, dishes, or cuisine..."
+                  className="w-full"
+                />
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
@@ -114,8 +128,30 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Discovery Section */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="space-y-12">
+            {/* Trending Searches */}
+            <Suspense fallback={<div className="h-48 bg-gray-50 rounded-lg animate-pulse" />}>
+              <TrendingSearches />
+            </Suspense>
+
+            {/* Featured Vendors */}
+            <Suspense fallback={<div className="h-96 bg-gray-50 rounded-lg animate-pulse" />}>
+              <FeaturedVendors limit={6} />
+            </Suspense>
+
+            {/* Recently Viewed */}
+            <Suspense fallback={<div className="h-64 bg-gray-50 rounded-lg animate-pulse" />}>
+              <RecentlyViewed limit={6} />
+            </Suspense>
+          </div>
+        </div>
+      </section>
+
       {/* Services Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -144,7 +180,7 @@ export default function HomePage() {
               <CardContent className="space-y-4">
                 <div className="relative aspect-video bg-gradient-to-br from-orange-100 to-yellow-100 rounded-lg overflow-hidden">
                   <Image
-                    src="https://i.ytimg.com/vi/1zyDUkdVZ0E/maxresdefault.jpg"
+                    src="https://i.pinimg.com/736x/af/1b/9f/af1b9fcc1c5053072d0b7a2c556fa2f0.jpg"
                     alt="African food delivery"
                     fill
                     className="object-cover"
@@ -181,7 +217,7 @@ export default function HomePage() {
               <CardContent className="space-y-4">
                 <div className="relative aspect-video bg-gradient-to-br from-green-100 to-blue-100 rounded-lg overflow-hidden">
                   <Image
-                    src="https://s1.cdn.autoevolution.com/images/news/gallery/watch-out-google-maps-garmin-launches-new-affordable-navigation-devices_6.jpg"
+                    src="https://triplogmileage.com/wp-content/uploads/2022/08/rideshare-driver-probably-needs-rideshare-insurance.jpg"
                     alt="Rideshare service"
                     fill
                     className="object-cover"
@@ -205,7 +241,7 @@ export default function HomePage() {
       </section>
 
       {/* Community Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -281,7 +317,7 @@ export default function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div className="space-y-2">

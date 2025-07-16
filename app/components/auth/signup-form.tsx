@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -18,9 +18,17 @@ export function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [acceptTerms, setAcceptTerms] = useState(false)
+  const [selectedRole, setSelectedRole] = useState<UserRole>("CUSTOMER")
   const router = useRouter()
   const searchParams = useSearchParams()
   const defaultRole = searchParams.get("role")?.toUpperCase() || "CUSTOMER"
+
+  // Set default role on component mount
+  useEffect(() => {
+    if (defaultRole && ["CUSTOMER", "VENDOR", "DRIVER"].includes(defaultRole)) {
+      setSelectedRole(defaultRole as UserRole)
+    }
+  }, [defaultRole])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -33,11 +41,18 @@ export function SignUpForm() {
       password: formData.get("password") as string,
       name: formData.get("name") as string,
       phone: formData.get("phone") as string,
-      role: formData.get("role") as UserRole,
+      role: selectedRole,
       acceptTerms,
     }
 
     const confirmPassword = formData.get("confirmPassword") as string
+    
+    // Validate all required fields
+    if (!userData.email || !userData.password || !userData.name || !acceptTerms) {
+      setError("Please fill in all required fields and accept the terms and conditions")
+      setIsLoading(false)
+      return
+    }
     
     if (userData.password !== confirmPassword) {
       setError("Passwords do not match")
@@ -144,7 +159,7 @@ export function SignUpForm() {
       
       <div className="space-y-2">
         <Label htmlFor="role">Account Type</Label>
-        <Select name="role" defaultValue={defaultRole} disabled={isLoading}>
+        <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)} disabled={isLoading}>
           <SelectTrigger>
             <SelectValue placeholder="Select account type" />
           </SelectTrigger>

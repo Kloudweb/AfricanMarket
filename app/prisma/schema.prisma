@@ -124,6 +124,11 @@ model User {
   searchQueries      SearchQuery[]
   recentlyViewed     RecentlyViewed[]
   preferences        UserPreferences?
+  
+  // Shopping Cart relations
+  cart               Cart?
+  promoCodeUsages    PromoCodeUsage[]
+  savedAddresses     SavedAddress[]
 }
 
 model Account {
@@ -256,6 +261,12 @@ model Vendor {
   favorites    VendorFavorite[]
   views        VendorView[]
   
+  // Shopping Cart relations
+  cartItems      CartItem[]
+  promoCodes     PromoCode[]
+  vendorOrders   VendorOrder[]
+  deliveryZones  DeliveryZone[]
+  
   @@index([isActive, verificationStatus])
   @@index([isFeatured, popularityScore])
   @@index([businessName, businessType])
@@ -329,6 +340,10 @@ model Product {
   inventoryLogs InventoryLog[]
   favorites  ProductFavorite[]
   views      ProductView[]
+  
+  // Shopping Cart relations
+  cartItems       CartItem[]
+  vendorOrderItems VendorOrderItem[]
   
   @@index([vendorId])
   @@index([categoryId])
@@ -459,6 +474,11 @@ model Order {
   review        Review?
   tracking      OrderTracking[]
   notifications Notification[]
+  
+  // Shopping Cart relations
+  promoCodeUsages PromoCodeUsage[]
+  vendorOrders    VendorOrder[]
+  taxCalculation  TaxCalculation?
 }
 
 model OrderItem {
@@ -1178,4 +1198,216 @@ model UserPreferences {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// Shopping Cart Models
+
+model Cart {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  items             CartItem[]
+  subtotal          Float     @default(0)
+  tax               Float     @default(0)
+  deliveryFee       Float     @default(0)
+  total             Float     @default(0)
+  appliedPromoCode  String?
+  discountAmount    Float     @default(0)
+  isDelivery        Boolean   @default(true)
+  deliveryAddress   String?
+  deliveryLatitude  Float?
+  deliveryLongitude Float?
+  specialInstructions String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appliedPromo PromoCode? @relation(fields: [appliedPromoCode], references: [code])
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model CartItem {
+  id              String    @id @default(cuid())
+  cartId          String
+  productId       String
+  vendorId        String
+  quantity        Int       @default(1)
+  price           Float     // Price at the time of adding to cart
+  subtotal        Float     // quantity * price
+  notes           String?   // Special instructions for this item
+  addedAt         DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+  @@index([productId])
+  @@index([vendorId])
+}
+
+enum PromoCodeType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_DELIVERY
+  FIRST_ORDER
+  VENDOR_SPECIFIC
+}
+
+model PromoCode {
+  id                    String        @id @default(cuid())
+  code                  String        @unique
+  type                  PromoCodeType
+  discountValue         Float         // percentage (0-100) or fixed amount
+  minimumOrderAmount    Float?        // minimum order required
+  maxDiscountAmount     Float?        // maximum discount for percentage codes
+  vendorId              String?       // for vendor-specific codes
+  description           String?
+  isActive              Boolean       @default(true)
+  usageLimit            Int?          // maximum number of uses
+  usageCount            Int           @default(0)
+  userLimit             Int?          // maximum uses per user
+  validFrom             DateTime      @default(now())
+  validUntil            DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  vendor    Vendor?         @relation(fields: [vendorId], references: [id])
+  usages    PromoCodeUsage[]
+  carts     Cart[]
+
+  @@index([code])
+  @@index([isActive, validFrom, validUntil])
+  @@index([vendorId])
+}
+
+model PromoCodeUsage {
+  id           String    @id @default(cuid())
+  userId       String
+  promoCodeId  String
+  orderId      String?
+  discountAmount Float
+  usedAt       DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  order     Order?    @relation(fields: [orderId], references: [id])
+
+  @@index([userId])
+  @@index([promoCodeId])
+  @@index([orderId])
+}
+
+model SavedAddress {
+  id             String    @id @default(cuid())
+  userId         String
+  label          String    // "Home", "Work", "Other"
+  firstName      String?
+  lastName       String?
+  company        String?
+  address        String
+  apartment      String?
+  city           String
+  province       String
+  postalCode     String
+  country        String    @default("Canada")
+  phone          String?
+  latitude       Float?
+  longitude      Float?
+  isDefault      Boolean   @default(false)
+  deliveryInstructions String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isDefault])
+}
+
+model VendorOrder {
+  id                String      @id @default(cuid())
+  orderId           String
+  vendorId          String
+  orderNumber       String      // Unique per vendor
+  status            OrderStatus @default(PENDING)
+  items             VendorOrderItem[]
+  subtotal          Float
+  tax               Float
+  deliveryFee       Float
+  total             Float
+  discountAmount    Float       @default(0)
+  specialInstructions String?
+  estimatedPickupTime DateTime?
+  estimatedDeliveryTime DateTime?
+  actualPickupTime  DateTime?
+  actualDeliveryTime DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+
+  @@index([orderId])
+  @@index([vendorId])
+  @@index([status])
+}
+
+model VendorOrderItem {
+  id              String    @id @default(cuid())
+  vendorOrderId   String
+  productId       String
+  quantity        Int
+  price           Float
+  subtotal        Float
+  notes           String?
+
+  vendorOrder VendorOrder @relation(fields: [vendorOrderId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id])
+
+  @@index([vendorOrderId])
+  @@index([productId])
+}
+
+model TaxCalculation {
+  id            String    @id @default(cuid())
+  orderId       String?   @unique
+  province      String
+  city          String?
+  postalCode    String?
+  subtotal      Float
+  hst           Float     @default(0)  // Harmonized Sales Tax
+  gst           Float     @default(0)  // Goods and Services Tax
+  pst           Float     @default(0)  // Provincial Sales Tax
+  totalTax      Float
+  taxRate       Float     // Combined tax rate
+  createdAt     DateTime  @default(now())
+
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([province])
+}
+
+model DeliveryZone {
+  id              String    @id @default(cuid())
+  vendorId        String
+  name            String    // "Downtown", "Airport Heights", etc.
+  description     String?
+  boundaries      Json      // GeoJSON polygon
+  baseFee         Float     // Base delivery fee for this zone
+  feePerKm        Float?    // Additional fee per km
+  minimumOrder    Float?    // Minimum order for delivery
+  maxDistance     Float?    // Maximum distance in km
+  estimatedTime   String?   // "30-45 minutes"
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([isActive])
 }

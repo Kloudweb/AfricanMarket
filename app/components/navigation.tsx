@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { CartSidebar } from "@/components/cart/cart-sidebar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -106,6 +107,9 @@ export default function Navigation() {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
+            {/* Cart Sidebar */}
+            <CartSidebar />
+            
             {status === "loading" ? (
               <div className="w-8 h-8 bg-muted rounded-full animate-pulse" />
             ) : session?.user ? (

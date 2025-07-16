@@ -6,6 +6,7 @@ import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useCart, useProductInCart } from "@/lib/cart-context"
 import { 
   Plus, 
   Minus, 
@@ -29,6 +30,7 @@ interface ProductCardProps {
     image?: string | null
     ingredients?: string | null
     isSpicy: boolean
+    isAvailable?: boolean
     prepTime?: number | null
     rating?: number
     totalReviews?: number
@@ -52,18 +54,32 @@ export function ProductCard({
   showVendorInfo = false 
 }: ProductCardProps) {
   const { data: session } = useSession()
-  const [quantity, setQuantity] = useState(0)
+  const { addItem, updateItem, removeItem, state } = useCart()
+  const { isInCart, quantity, cartItem } = useProductInCart(product.id)
   const [isFavorited, setIsFavorited] = useState(product.isFavorited || false)
   const [isToggling, setIsToggling] = useState(false)
 
-  const addToCart = () => {
-    setQuantity(prev => prev + 1)
-    // TODO: Implement cart functionality
+  const addToCart = async () => {
+    if (!session) {
+      window.location.href = '/auth/signin'
+      return
+    }
+    
+    if (isInCart && cartItem) {
+      await updateItem(cartItem.id, quantity + 1)
+    } else {
+      await addItem(product.id, 1)
+    }
   }
 
-  const removeFromCart = () => {
-    setQuantity(prev => Math.max(0, prev - 1))
-    // TODO: Implement cart functionality
+  const removeFromCart = async () => {
+    if (!cartItem) return
+    
+    if (quantity > 1) {
+      await updateItem(cartItem.id, quantity - 1)
+    } else {
+      await removeItem(cartItem.id)
+    }
   }
 
   const toggleFavorite = async (e: React.MouseEvent) => {
@@ -241,10 +257,11 @@ export function ProductCard({
           {quantity === 0 ? (
             <Button 
               onClick={addToCart}
-              className="w-full bg-orange-500 hover:bg-orange-600"
+              disabled={state.loading || !product.isAvailable}
+              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50"
             >
               <ShoppingCart className="w-4 h-4 mr-2" />
-              Add to Cart
+              {!product.isAvailable ? 'Out of Stock' : 'Add to Cart'}
             </Button>
           ) : (
             <div className="flex items-center space-x-3 w-full">
@@ -252,6 +269,7 @@ export function ProductCard({
                 variant="outline"
                 size="sm"
                 onClick={removeFromCart}
+                disabled={state.loading}
                 className="h-8 w-8 p-0"
               >
                 <Minus className="w-4 h-4" />
@@ -263,6 +281,7 @@ export function ProductCard({
                 variant="outline"
                 size="sm"
                 onClick={addToCart}
+                disabled={state.loading || !product.isAvailable}
                 className="h-8 w-8 p-0"
               >
                 <Plus className="w-4 h-4" />

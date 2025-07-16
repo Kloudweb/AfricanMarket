@@ -1,4 +1,5 @@
 
+
 import { 
   UserRole, 
   OrderStatus, 
@@ -8,7 +9,8 @@ import {
   TokenType,
   DocumentType,
   DocumentStatus,
-  KYCStatus
+  KYCStatus,
+  PromoCodeType
 } from "@prisma/client"
 
 export interface User {
@@ -152,10 +154,153 @@ export interface Ride {
   driver?: Driver
 }
 
+// Shopping Cart Types
 export interface CartItem {
-  product: Product
+  id: string
+  productId: string
+  vendorId: string
   quantity: number
+  price: number
+  subtotal: number
   notes?: string
+  product: Product
+  vendor: Vendor
+  addedAt: Date
+  updatedAt: Date
+}
+
+export interface Cart {
+  id: string
+  userId: string
+  items: CartItem[]
+  subtotal: number
+  tax: number
+  deliveryFee: number
+  total: number
+  appliedPromoCode?: string
+  discountAmount: number
+  isDelivery: boolean
+  deliveryAddress?: string
+  deliveryLatitude?: number
+  deliveryLongitude?: number
+  specialInstructions?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface PromoCode {
+  id: string
+  code: string
+  type: PromoCodeType
+  discountValue: number
+  minimumOrderAmount?: number
+  maxDiscountAmount?: number
+  vendorId?: string
+  description?: string
+  isActive: boolean
+  usageLimit?: number
+  usageCount: number
+  userLimit?: number
+  validFrom: Date
+  validUntil?: Date
+  vendor?: Vendor
+}
+
+export interface PromoCodeUsage {
+  id: string
+  userId: string
+  promoCodeId: string
+  orderId?: string
+  discountAmount: number
+  usedAt: Date
+  user: User
+  promoCode: PromoCode
+  order?: Order
+}
+
+export interface SavedAddress {
+  id: string
+  userId: string
+  label: string
+  firstName?: string
+  lastName?: string
+  company?: string
+  address: string
+  apartment?: string
+  city: string
+  province: string
+  postalCode: string
+  country: string
+  phone?: string
+  latitude?: number
+  longitude?: number
+  isDefault: boolean
+  deliveryInstructions?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface VendorOrder {
+  id: string
+  orderId: string
+  vendorId: string
+  orderNumber: string
+  status: OrderStatus
+  items: VendorOrderItem[]
+  subtotal: number
+  tax: number
+  deliveryFee: number
+  total: number
+  discountAmount: number
+  specialInstructions?: string
+  estimatedPickupTime?: Date
+  estimatedDeliveryTime?: Date
+  actualPickupTime?: Date
+  actualDeliveryTime?: Date
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface VendorOrderItem {
+  id: string
+  vendorOrderId: string
+  productId: string
+  quantity: number
+  price: number
+  subtotal: number
+  notes?: string
+  product: Product
+}
+
+export interface TaxCalculation {
+  id: string
+  orderId?: string
+  province: string
+  city?: string
+  postalCode?: string
+  subtotal: number
+  hst: number
+  gst: number
+  pst: number
+  totalTax: number
+  taxRate: number
+  createdAt: Date
+}
+
+export interface DeliveryZone {
+  id: string
+  vendorId: string
+  name: string
+  description?: string
+  boundaries: any // JSON
+  baseFee: number
+  feePerKm?: number
+  minimumOrder?: number
+  maxDistance?: number
+  estimatedTime?: string
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
 }
 
 export interface Address {
@@ -396,4 +541,60 @@ export interface DocumentUploadData {
   title: string
   description?: string
   expiresAt?: Date
+}
+
+// Cart-specific types
+export interface CartCalculation {
+  subtotal: number
+  tax: number
+  deliveryFee: number
+  discountAmount: number
+  total: number
+}
+
+export interface VendorGroup {
+  vendor: Vendor
+  items: CartItem[]
+  subtotal: number
+  deliveryFee: number
+  minimumOrderAmount: number
+}
+
+export interface CheckoutData {
+  paymentMethod: string
+  deliveryAddress?: string
+  deliveryLatitude?: number
+  deliveryLongitude?: number
+  isDelivery: boolean
+  specialInstructions?: string
+  addressId?: string
+}
+
+// Order tracking types
+export interface OrderTracking {
+  id: string
+  orderId: string
+  status: OrderStatus
+  message?: string
+  latitude?: number
+  longitude?: number
+  timestamp: Date
+}
+
+// API Response types
+export interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    pages: number
+  }
 }

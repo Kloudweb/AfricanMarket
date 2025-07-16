@@ -223,15 +223,21 @@ model Vendor {
   orders       Order[]
   reviews      Review[]
   earnings     Earning[]
+  categories   ProductCategory[]
+  analytics    VendorAnalytics[]
+  hours        VendorHours[]
+  notifications VendorNotification[]
+  settings     VendorSettings?
 }
 
 model Product {
   id          String   @id @default(cuid())
   vendorId    String
+  categoryId  String?
   name        String
   description String?
   price       Float
-  category    String
+  category    String   // Keep for backward compatibility
   image       String?
   images      String[]
   isAvailable Boolean  @default(true)
@@ -239,13 +245,46 @@ model Product {
   allergens   String?
   isSpicy     Boolean  @default(false)
   prepTime    Int?     // in minutes
+  
+  // Enhanced product features
+  sku         String?  // Stock keeping unit
+  stockQuantity Int?   // Current stock level
+  lowStockAlert Int?   // Alert threshold
+  isTrackingStock Boolean @default(false)
+  weight      Float?   // in grams
+  dimensions  String?  // "length x width x height"
+  nutritionInfo Json?  // Nutrition facts
+  dietaryInfo String[] // vegetarian, vegan, gluten-free, etc.
+  spiceLevel  Int?     // 1-5 scale
+  isSignatureDish Boolean @default(false)
+  isPopular   Boolean  @default(false)
+  displayOrder Int?    // For menu ordering
+  
+  // Pricing and promotions
+  originalPrice Float?  // For discounts
+  discountPercent Float? // Discount percentage
+  promotionStart DateTime?
+  promotionEnd   DateTime?
+  
+  // SEO and metadata
+  slug        String?
+  tags        String[]
+  metaTitle   String?
+  metaDescription String?
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
   vendor     Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  productCategory ProductCategory? @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
   reviews    Review[]
+  inventoryLogs InventoryLog[]
+  
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([isAvailable])
 }
 
 model Driver {
@@ -735,6 +774,186 @@ model PasswordResetLog {
   @@index([userId])
   @@index([email])
   @@index([timestamp])
+}
+
+// Enhanced Vendor Management Models
+
+model ProductCategory {
+  id          String   @id @default(cuid())
+  vendorId    String
+  name        String
+  description String?
+  image       String?
+  isActive    Boolean  @default(true)
+  displayOrder Int?    // For menu ordering
+  parentId    String?  // For subcategories
+  
+  // SEO and metadata
+  slug        String?
+  metaTitle   String?
+  metaDescription String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  vendor      Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  products    Product[]
+  parent      ProductCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    ProductCategory[] @relation("CategoryHierarchy")
+  
+  @@index([vendorId])
+  @@index([isActive])
+}
+
+model InventoryLog {
+  id        String   @id @default(cuid())
+  productId String
+  vendorId  String
+  type      String   // STOCK_IN, STOCK_OUT, ADJUSTMENT, AUTO_DEDUCTION
+  quantity  Int      // Can be negative for stock out
+  previousStock Int
+  currentStock  Int
+  reason    String?  // reason for adjustment
+  notes     String?
+  orderId   String?  // If related to an order
+  userId    String?  // Who made the change
+  
+  createdAt DateTime @default(now())
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@index([productId])
+  @@index([vendorId])
+  @@index([createdAt])
+}
+
+model VendorAnalytics {
+  id        String   @id @default(cuid())
+  vendorId  String
+  date      DateTime // Date for the analytics record
+  
+  // Order metrics
+  totalOrders       Int     @default(0)
+  completedOrders   Int     @default(0)
+  cancelledOrders   Int     @default(0)
+  avgOrderValue     Float   @default(0)
+  
+  // Revenue metrics
+  totalRevenue      Float   @default(0)
+  netRevenue        Float   @default(0) // After commissions
+  totalCommission   Float   @default(0)
+  
+  // Product metrics
+  totalProducts     Int     @default(0)
+  activeProducts    Int     @default(0)
+  outOfStockProducts Int    @default(0)
+  
+  // Customer metrics
+  totalCustomers    Int     @default(0)
+  newCustomers      Int     @default(0)
+  returningCustomers Int    @default(0)
+  
+  // Performance metrics
+  avgPreparationTime Float  @default(0) // in minutes
+  avgRating         Float   @default(0)
+  totalReviews      Int     @default(0)
+  
+  // Additional metrics
+  totalItemsSold    Int     @default(0)
+  refundAmount      Float   @default(0)
+  totalTips         Float   @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  @@unique([vendorId, date])
+  @@index([vendorId])
+  @@index([date])
+}
+
+model VendorHours {
+  id        String   @id @default(cuid())
+  vendorId  String
+  dayOfWeek Int      // 0 = Sunday, 1 = Monday, etc.
+  isOpen    Boolean  @default(true)
+  openTime  String   // Format: "HH:MM"
+  closeTime String   // Format: "HH:MM"
+  
+  // Special hours
+  isHoliday Boolean  @default(false)
+  holidayName String?
+  specialDate DateTime? // For one-time special hours
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  @@index([vendorId])
+  @@index([dayOfWeek])
+}
+
+model VendorNotification {
+  id        String   @id @default(cuid())
+  vendorId  String
+  type      String   // ORDER_RECEIVED, LOW_STOCK, PAYMENT_RECEIVED, etc.
+  title     String
+  message   String
+  data      Json?    // Additional notification data
+  isRead    Boolean  @default(false)
+  priority  String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  // Relations
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  @@index([vendorId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model VendorSettings {
+  id        String   @id @default(cuid())
+  vendorId  String   @unique
+  
+  // Operational settings
+  autoAcceptOrders  Boolean @default(false)
+  maxOrdersPerHour  Int?
+  minOrderAmount    Float?
+  maxOrderAmount    Float?
+  
+  // Notification settings
+  emailNotifications Boolean @default(true)
+  smsNotifications   Boolean @default(true)
+  pushNotifications  Boolean @default(true)
+  
+  // Order settings
+  defaultPreparationTime Int @default(30) // in minutes
+  allowPreorders         Boolean @default(false)
+  preorderDays          Int @default(7)
+  
+  // Inventory settings
+  autoDisableOutOfStock Boolean @default(true)
+  lowStockThreshold     Int @default(10)
+  sendLowStockAlerts    Boolean @default(true)
+  
+  // Advanced settings
+  customOrderFields     Json?
+  integrationSettings   Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {

@@ -13,6 +13,9 @@ import {
   PromoCodeType
 } from "@prisma/client"
 
+// Re-export for components
+export type { RideStatus } from "@prisma/client"
+
 export interface User {
   id: string
   email: string
@@ -143,15 +146,43 @@ export interface Ride {
   id: string
   rideNumber: string
   status: RideStatus
+  rideType: string
   pickupAddress: string
+  pickupLatitude: number
+  pickupLongitude: number
   destinationAddress: string
+  destinationLatitude: number
+  destinationLongitude: number
   distance?: number
+  estimatedDuration?: number
   estimatedFare?: number
   actualFare?: number
+  baseFare?: number
+  distanceFare?: number
+  timeFare?: number
+  surgeFare?: number
+  surgeMultiplier?: number
   paymentStatus: PaymentStatus
+  paymentMethod?: string
+  notes?: string
+  passengers: number
+  isScheduled: boolean
+  scheduledFor?: Date
+  cancelReason?: string
+  cancelledBy?: string
   requestedAt: Date
+  acceptedAt?: Date
+  arrivedAt?: Date
+  startedAt?: Date
+  completedAt?: Date
+  cancelledAt?: Date
+  createdAt: Date
+  updatedAt: Date
   customer: User
   driver?: Driver
+  rideRequest?: RideRequest
+  fareEstimate?: FareEstimate
+  tracking: RideTracking[]
 }
 
 // Shopping Cart Types
@@ -762,6 +793,273 @@ export interface DeliveryRoute {
   createdAt: Date
   updatedAt: Date
   driver: Driver
+}
+
+// Rideshare specific types
+export interface RideRequest {
+  id: string
+  rideId: string
+  customerId: string
+  pickupAddress: string
+  pickupLatitude: number
+  pickupLongitude: number
+  destinationAddress: string
+  destinationLatitude: number
+  destinationLongitude: number
+  rideType: string
+  passengers: number
+  isScheduled: boolean
+  scheduledFor?: Date
+  notes?: string
+  maxFare?: number
+  preferredDriverId?: string
+  autoAccept: boolean
+  expiresAt: Date
+  minRating?: number
+  allowShared: boolean
+  requireChild: boolean
+  requireWheelchair: boolean
+  createdAt: Date
+  updatedAt: Date
+  ride: Ride
+  customer: User
+  driverResponses: DriverResponse[]
+}
+
+export interface SavedLocation {
+  id: string
+  userId: string
+  rideId?: string
+  type: string
+  name: string
+  address: string
+  latitude: number
+  longitude: number
+  apartment?: string
+  notes?: string
+  isDefault: boolean
+  usageCount: number
+  lastUsed?: Date
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface FareEstimate {
+  id: string
+  rideId: string
+  rideType: string
+  distance: number
+  duration: number
+  baseFare: number
+  distanceFare: number
+  timeFare: number
+  surgeFare?: number
+  surgeMultiplier: number
+  totalFare: number
+  currency: string
+  fareBreakdown: any
+  peakHours: boolean
+  weatherImpact: boolean
+  demandLevel: string
+  validUntil: Date
+  createdAt: Date
+  breakdown: {
+    distance: number
+    duration: number
+    rideType: string
+    surgeActive: boolean
+    estimatedTime: string
+    estimatedDistance: string
+  }
+}
+
+export interface RideType {
+  id: string
+  name: string
+  displayName: string
+  description?: string
+  icon?: string
+  baseFare: number
+  perKmRate: number
+  perMinuteRate: number
+  minimumFare: number
+  maximumFare?: number
+  capacity: number
+  isActive: boolean
+  vehicleTypes: string[]
+  minYear?: number
+  features: string[]
+  surgePricing: boolean
+  maxSurge: number
+  availableHours?: any
+  availableDays: string[]
+  availableDrivers?: number
+  estimatedWaitTime?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DriverResponse {
+  id: string
+  rideRequestId: string
+  driverId: string
+  response: string
+  estimatedArrival?: number
+  notes?: string
+  respondedAt: Date
+  expiresAt: Date
+  driverLatitude?: number
+  driverLongitude?: number
+  distanceToPickup?: number
+  createdAt: Date
+  rideRequest: RideRequest
+  driver: Driver
+}
+
+export interface SurgeZone {
+  id: string
+  name: string
+  boundaries: any
+  multiplier: number
+  isActive: boolean
+  startTime: Date
+  endTime?: Date
+  reason?: string
+  activeRides: number
+  activeDrivers: number
+  demandLevel: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface RideSchedule {
+  id: string
+  customerId: string
+  rideType: string
+  pickupAddress: string
+  pickupLatitude: number
+  pickupLongitude: number
+  destinationAddress: string
+  destinationLatitude: number
+  destinationLongitude: number
+  scheduledFor: Date
+  isRecurring: boolean
+  recurringType?: string
+  recurringDays: string[]
+  recurringUntil?: Date
+  passengers: number
+  notes?: string
+  preferredDriverId?: string
+  maxFare?: number
+  status: string
+  nextRideAt?: Date
+  lastRideAt?: Date
+  createdAt: Date
+  updatedAt: Date
+  customer: User
+}
+
+export interface DriverPreference {
+  id: string
+  driverId: string
+  maxDistance?: number
+  rideTypes: string[]
+  workingHours?: any
+  breakTimes?: any
+  workingDays: string[]
+  minRating?: number
+  allowPets: boolean
+  allowSmoking: boolean
+  allowFood: boolean
+  soundEnabled: boolean
+  vibrationEnabled: boolean
+  autoAcceptEnabled: boolean
+  autoAcceptDistance?: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface RideStatistics {
+  id: string
+  date: Date
+  totalRides: number
+  completedRides: number
+  cancelledRides: number
+  totalRevenue: number
+  totalDistance: number
+  averageRating: number
+  peakHourRides: number
+  surgeHourRides: number
+  standardRides: number
+  premiumRides: number
+  sharedRides: number
+  averageWaitTime: number
+  averageRideTime: number
+  driverUtilization: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface RideTracking {
+  id: string
+  rideId: string
+  status: RideStatus
+  message?: string
+  latitude?: number
+  longitude?: number
+  timestamp: Date
+  ride: Ride
+}
+
+// Enhanced Driver type for rideshare
+export interface EnhancedDriver extends Driver {
+  distance?: number
+  eta?: number
+  etaText?: string
+  heading?: number
+  speed?: number
+  isOnline?: boolean
+  lastLocationUpdate?: Date
+  preferences?: DriverPreference
+}
+
+// Rideshare form data types
+export interface RideRequestFormData {
+  pickupAddress: string
+  pickupLatitude: number
+  pickupLongitude: number
+  destinationAddress: string
+  destinationLatitude: number
+  destinationLongitude: number
+  rideType: string
+  passengers: number
+  isScheduled: boolean
+  scheduledFor?: string
+  notes?: string
+  maxFare?: number
+  preferredDriverId?: string
+  autoAccept: boolean
+  minRating?: number
+  allowShared: boolean
+  requireChild: boolean
+  requireWheelchair: boolean
+}
+
+export interface LocationSearchResult {
+  address: string
+  formattedAddress: string
+  latitude: number
+  longitude: number
+  placeId: string
+  types: string[]
+  components: {
+    streetNumber?: string
+    route?: string
+    locality?: string
+    administrativeAreaLevel1?: string
+    country?: string
+    postalCode?: string
+  }
 }
 
 // API Response types

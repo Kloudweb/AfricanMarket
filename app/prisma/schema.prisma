@@ -1,0 +1,434 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/africanmarket/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  VENDOR
+  DRIVER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum RideStatus {
+  PENDING
+  ACCEPTED
+  DRIVER_ARRIVING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  password      String?
+  phone         String?
+  role          UserRole @default(CUSTOMER)
+  avatar        String?
+  isVerified    Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  accounts         Account[]
+  sessions         Session[]
+  customerOrders   Order[]      @relation("CustomerOrders")
+  vendorProfile    Vendor?
+  driverProfile    Driver?
+  customerRides    Ride[]       @relation("CustomerRides")
+  reviews          Review[]
+  payments         Payment[]
+  notifications    Notification[]
+  chatMessages     ChatMessage[]
+  addresses        Address[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Vendor {
+  id                    String             @id @default(cuid())
+  userId                String             @unique
+  businessName          String
+  businessType          String
+  description           String?
+  logo                  String?
+  coverImage            String?
+  address               String
+  city                  String
+  province              String             @default("Newfoundland and Labrador")
+  postalCode            String
+  latitude              Float?
+  longitude             Float?
+  phone                 String
+  businessHours         Json?
+  verificationStatus    VerificationStatus @default(PENDING)
+  verificationDocuments Json?
+  foodSafetyCertificate String?
+  businessLicense       String?
+  isActive              Boolean            @default(true)
+  commissionRate        Float              @default(0.20)
+  rating                Float              @default(0)
+  totalReviews          Int                @default(0)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  // Relations
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products     Product[]
+  orders       Order[]
+  reviews      Review[]
+  earnings     Earning[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  vendorId    String
+  name        String
+  description String?
+  price       Float
+  category    String
+  image       String?
+  images      String[]
+  isAvailable Boolean  @default(true)
+  ingredients String?
+  allergens   String?
+  isSpicy     Boolean  @default(false)
+  prepTime    Int?     // in minutes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  vendor     Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+  reviews    Review[]
+}
+
+model Driver {
+  id                    String             @id @default(cuid())
+  userId                String             @unique
+  licenseNumber         String
+  vehicleType           String
+  vehicleMake           String
+  vehicleModel          String
+  vehicleYear           Int
+  vehicleColor          String
+  vehiclePlate          String
+  vehicleImage          String?
+  licenseImage          String?
+  insuranceImage        String?
+  verificationStatus    VerificationStatus @default(PENDING)
+  isAvailable           Boolean            @default(false)
+  currentLatitude       Float?
+  currentLongitude      Float?
+  commissionRate        Float              @default(0.25)
+  rating                Float              @default(0)
+  totalReviews          Int                @default(0)
+  totalDeliveries       Int                @default(0)
+  totalRides            Int                @default(0)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  // Relations
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveryOrders    Order[]
+  rides             Ride[]
+  reviews           Review[]
+  earnings          Earning[]
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  customerId        String
+  vendorId          String
+  driverId          String?
+  orderNumber       String      @unique
+  status            OrderStatus @default(PENDING)
+  items             OrderItem[]
+  subtotal          Float
+  deliveryFee       Float
+  tax               Float
+  totalAmount       Float
+  paymentStatus     PaymentStatus @default(PENDING)
+  paymentMethod     String?
+  specialInstructions String?
+  isDelivery        Boolean     @default(true)
+  deliveryAddress   String?
+  deliveryLatitude  Float?
+  deliveryLongitude Float?
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  customer      User        @relation("CustomerOrders", fields: [customerId], references: [id])
+  vendor        Vendor      @relation(fields: [vendorId], references: [id])
+  driver        Driver?     @relation(fields: [driverId], references: [id])
+  payment       Payment?
+  review        Review?
+  tracking      OrderTracking[]
+  notifications Notification[]
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Float
+  subtotal  Float
+  notes     String?
+
+  // Relations
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Ride {
+  id                  String     @id @default(cuid())
+  customerId          String
+  driverId            String?
+  rideNumber          String     @unique
+  status              RideStatus @default(PENDING)
+  pickupAddress       String
+  pickupLatitude      Float
+  pickupLongitude     Float
+  destinationAddress  String
+  destinationLatitude Float
+  destinationLongitude Float
+  distance            Float?     // in km
+  estimatedDuration   Int?       // in minutes
+  estimatedFare       Float?
+  actualFare          Float?
+  paymentStatus       PaymentStatus @default(PENDING)
+  paymentMethod       String?
+  notes               String?
+  requestedAt         DateTime   @default(now())
+  acceptedAt          DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  // Relations
+  customer      User         @relation("CustomerRides", fields: [customerId], references: [id])
+  driver        Driver?      @relation(fields: [driverId], references: [id])
+  payment       Payment?
+  review        Review?
+  tracking      RideTracking[]
+  notifications Notification[]
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String
+  orderId           String?       @unique
+  rideId            String?       @unique
+  amount            Float
+  currency          String        @default("CAD")
+  status            PaymentStatus @default(PENDING)
+  paymentMethod     String
+  stripePaymentId   String?
+  paypalPaymentId   String?
+  platformFee       Float
+  vendorAmount      Float?
+  driverAmount      Float?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id])
+  order Order? @relation(fields: [orderId], references: [id])
+  ride  Ride?  @relation(fields: [rideId], references: [id])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  userId     String
+  vendorId   String?
+  productId  String?
+  driverId   String?
+  orderId    String?  @unique
+  rideId     String?  @unique
+  rating     Int      // 1-5
+  comment    String?
+  images     String[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id])
+  vendor   Vendor?  @relation(fields: [vendorId], references: [id])
+  product  Product? @relation(fields: [productId], references: [id])
+  driver   Driver?  @relation(fields: [driverId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
+  ride     Ride?    @relation(fields: [rideId], references: [id])
+}
+
+model Address {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // home, work, other
+  address     String
+  city        String
+  province    String
+  postalCode  String
+  latitude    Float?
+  longitude   Float?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OrderTracking {
+  id        String   @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  message   String?
+  latitude  Float?
+  longitude Float?
+  timestamp DateTime @default(now())
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model RideTracking {
+  id        String   @id @default(cuid())
+  rideId    String
+  status    RideStatus
+  message   String?
+  latitude  Float?
+  longitude Float?
+  timestamp DateTime @default(now())
+
+  // Relations
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  orderId   String?
+  rideId    String?
+  type      String   // order_update, ride_update, payment, promotion
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id])
+  ride  Ride?  @relation(fields: [rideId], references: [id])
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  orderId    String?
+  rideId     String?
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  // Relations
+  sender User @relation(fields: [senderId], references: [id])
+}
+
+model Earning {
+  id          String   @id @default(cuid())
+  vendorId    String?
+  driverId    String?
+  orderId     String?
+  rideId      String?
+  amount      Float
+  commission  Float
+  netAmount   Float
+  type        String   // delivery, ride, bonus
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  vendor Vendor? @relation(fields: [vendorId], references: [id])
+  driver Driver? @relation(fields: [driverId], references: [id])
+}
+
+model SystemConfig {
+  id                  String   @id @default(cuid())
+  key                 String   @unique
+  value               String
+  description         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

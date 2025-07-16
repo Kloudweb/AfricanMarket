@@ -579,6 +579,189 @@ export interface OrderTracking {
   latitude?: number
   longitude?: number
   timestamp: Date
+  updatedBy?: string
+  estimatedTime?: Date
+  actualTime?: Date
+  metadata?: any
+}
+
+// Enhanced tracking types
+export interface DriverLocation {
+  id: string
+  driverId: string
+  latitude: number
+  longitude: number
+  heading?: number
+  speed?: number
+  accuracy?: number
+  timestamp: Date
+  isOnline: boolean
+  isDelivering: boolean
+  currentOrderId?: string
+  batteryLevel?: number
+  appVersion?: string
+}
+
+export interface PreparationTime {
+  id: string
+  vendorId: string
+  orderId?: string
+  baseTime: number
+  complexity: number
+  rush: boolean
+  estimatedTime: number
+  actualTime?: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DeliveryConfirmation {
+  id: string
+  orderId: string
+  driverId: string
+  customerId: string
+  latitude: number
+  longitude: number
+  photos: string[]
+  signature?: string
+  notes?: string
+  timestamp: Date
+  verified: boolean
+  verifiedAt?: Date
+  driver?: Driver
+}
+
+export interface NotificationPreferences {
+  id: string
+  userId: string
+  orderUpdates: boolean
+  preparationTime: boolean
+  driverAssigned: boolean
+  driverLocation: boolean
+  deliveryConfirmation: boolean
+  promotions: boolean
+  email: boolean
+  sms: boolean
+  push: boolean
+  realTimeUpdates: boolean
+  digest: boolean
+  digestFrequency?: string
+  quietHours: boolean
+  quietStart?: string
+  quietEnd?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface OrderChat {
+  id: string
+  orderId: string
+  senderId: string
+  senderRole: UserRole
+  message: string
+  messageType: string
+  metadata?: any
+  isRead: boolean
+  readAt?: Date
+  createdAt: Date
+  sender: User
+}
+
+export interface PushNotification {
+  id: string
+  userId: string
+  title: string
+  body: string
+  data?: any
+  sent: boolean
+  sentAt?: Date
+  delivered: boolean
+  deliveredAt?: Date
+  clicked: boolean
+  clickedAt?: Date
+  orderId?: string
+  rideId?: string
+  createdAt: Date
+  user: User
+  order?: Order
+  ride?: Ride
+}
+
+export interface DriverShift {
+  id: string
+  driverId: string
+  startTime: Date
+  endTime?: Date
+  status: string
+  totalEarnings: number
+  totalDeliveries: number
+  totalDistance: number
+  totalTime: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface OrderTimeEstimate {
+  id: string
+  orderId: string
+  preparationTime: number
+  pickupTime: number
+  deliveryTime: number
+  totalTime: number
+  estimatedPickup?: Date
+  estimatedDelivery?: Date
+  actualPickup?: Date
+  actualDelivery?: Date
+  accuracy?: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DriverAssignment {
+  id: string
+  orderId: string
+  driverId: string
+  priority: number
+  distance: number
+  eta: number
+  status: string
+  assignedAt: Date
+  respondedAt?: Date
+  response?: string
+  expiresAt: Date
+  order: Order
+  driver: Driver
+}
+
+export interface Geofence {
+  id: string
+  name: string
+  type: string
+  latitude: number
+  longitude: number
+  radius: number
+  vendorId?: string
+  orderId?: string
+  isActive: boolean
+  createdAt: Date
+  vendor?: Vendor
+  order?: Order
+}
+
+export interface DeliveryRoute {
+  id: string
+  driverId: string
+  orderIds: string[]
+  route: any
+  distance: number
+  duration: number
+  optimized: boolean
+  status: string
+  startedAt?: Date
+  completedAt?: Date
+  createdAt: Date
+  updatedAt: Date
+  driver: Driver
 }
 
 // API Response types

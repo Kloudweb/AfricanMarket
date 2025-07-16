@@ -129,6 +129,12 @@ model User {
   cart               Cart?
   promoCodeUsages    PromoCodeUsage[]
   savedAddresses     SavedAddress[]
+  
+  // Order Tracking relations
+  deliveryConfirmations DeliveryConfirmation[] @relation("DeliveryConfirmations")
+  notificationPreferences NotificationPreferences?
+  orderChatSender    OrderChat[] @relation("OrderChatSender")
+  pushNotifications  PushNotification[] @relation("PushNotifications")
 }
 
 model Account {
@@ -266,6 +272,10 @@ model Vendor {
   promoCodes     PromoCode[]
   vendorOrders   VendorOrder[]
   deliveryZones  DeliveryZone[]
+  
+  // Order Tracking relations
+  preparationTimes PreparationTime[]
+  geofences       Geofence[]
   
   @@index([isActive, verificationStatus])
   @@index([isFeatured, popularityScore])
@@ -440,6 +450,13 @@ model Driver {
   rides             Ride[]
   reviews           Review[]
   earnings          Earning[]
+  
+  // Order Tracking relations
+  locations         DriverLocation[]
+  shifts            DriverShift[]
+  assignments       DriverAssignment[]
+  routes            DeliveryRoute[]
+  deliveryConfirmations DeliveryConfirmation[]
 }
 
 model Order {
@@ -479,6 +496,15 @@ model Order {
   promoCodeUsages PromoCodeUsage[]
   vendorOrders    VendorOrder[]
   taxCalculation  TaxCalculation?
+  
+  // Order Tracking relations
+  preparationTime PreparationTime[]
+  deliveryConfirmation DeliveryConfirmation?
+  orderChat       OrderChat[]
+  pushNotifications PushNotification[]
+  timeEstimate    OrderTimeEstimate?
+  assignments     DriverAssignment[]
+  geofences       Geofence[]
 }
 
 model OrderItem {
@@ -528,6 +554,9 @@ model Ride {
   review        Review?
   tracking      RideTracking[]
   notifications Notification[]
+  
+  // Order Tracking relations
+  pushNotifications PushNotification[]
 }
 
 model Payment {
@@ -602,9 +631,15 @@ model OrderTracking {
   latitude  Float?
   longitude Float?
   timestamp DateTime @default(now())
+  updatedBy String?  // user who updated the status
+  estimatedTime DateTime?  // estimated time for this status
+  actualTime DateTime?     // actual time this status was reached
+  metadata  Json?          // additional tracking data
 
   // Relations
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId, timestamp])
 }
 
 model RideTracking {
@@ -618,6 +653,257 @@ model RideTracking {
 
   // Relations
   ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+}
+
+// Real-time driver location tracking
+model DriverLocation {
+  id        String   @id @default(cuid())
+  driverId  String
+  latitude  Float
+  longitude Float
+  heading   Float?   // Direction in degrees (0-360)
+  speed     Float?   // Speed in km/h
+  accuracy  Float?   // GPS accuracy in meters
+  timestamp DateTime @default(now())
+  isOnline  Boolean  @default(true)
+  isDelivering Boolean @default(false)
+  currentOrderId String?
+  batteryLevel Int?   // Battery percentage
+  appVersion String?
+
+  // Relations
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, timestamp])
+  @@index([latitude, longitude])
+}
+
+// Dynamic preparation time management
+model PreparationTime {
+  id        String   @id @default(cuid())
+  vendorId  String
+  orderId   String?
+  baseTime  Int      // Base preparation time in minutes
+  complexity Int     // Order complexity factor (1-5)
+  rush      Boolean  @default(false) // Rush hour multiplier
+  estimatedTime Int  // Final estimated time in minutes
+  actualTime Int?    // Actual preparation time
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  order  Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([vendorId])
+  @@index([orderId])
+}
+
+// Delivery confirmation with photos
+model DeliveryConfirmation {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  driverId  String
+  customerId String
+  latitude  Float
+  longitude Float
+  photos    String[] // Array of photo URLs
+  signature String?  // Digital signature or PIN
+  notes     String?
+  timestamp DateTime @default(now())
+  verified  Boolean  @default(false)
+  verifiedAt DateTime?
+
+  // Relations
+  order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver   Driver @relation(fields: [driverId], references: [id])
+  customer User   @relation("DeliveryConfirmations", fields: [customerId], references: [id])
+  
+  @@index([orderId])
+  @@index([driverId])
+}
+
+// Enhanced notification preferences
+model NotificationPreferences {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  orderUpdates Boolean @default(true)
+  preparationTime Boolean @default(true)
+  driverAssigned Boolean @default(true)
+  driverLocation Boolean @default(true)
+  deliveryConfirmation Boolean @default(true)
+  promotions Boolean @default(true)
+  email     Boolean @default(true)
+  sms       Boolean @default(false)
+  push      Boolean @default(true)
+  
+  // Notification frequency
+  realTimeUpdates Boolean @default(true)
+  digest     Boolean @default(false)
+  digestFrequency String? // daily, weekly
+  
+  // Quiet hours
+  quietHours Boolean @default(false)
+  quietStart String? // Time in HH:MM format
+  quietEnd   String? // Time in HH:MM format
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Order chat for communication
+model OrderChat {
+  id        String   @id @default(cuid())
+  orderId   String
+  senderId  String
+  senderRole UserRole
+  message   String
+  messageType String @default("text") // text, image, location, system
+  metadata  Json?    // Additional message data
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  // Relations
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sender User  @relation("OrderChatSender", fields: [senderId], references: [id])
+  
+  @@index([orderId, createdAt])
+  @@index([senderId])
+}
+
+// Push notification management
+model PushNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  data      Json?    // Additional notification data
+  sent      Boolean  @default(false)
+  sentAt    DateTime?
+  delivered Boolean  @default(false)
+  deliveredAt DateTime?
+  clicked   Boolean  @default(false)
+  clickedAt DateTime?
+  orderId   String?
+  rideId    String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  user  User   @relation("PushNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id])
+  ride  Ride?  @relation(fields: [rideId], references: [id])
+  
+  @@index([userId, sent])
+  @@index([orderId])
+}
+
+// Driver shift management
+model DriverShift {
+  id        String   @id @default(cuid())
+  driverId  String
+  startTime DateTime
+  endTime   DateTime?
+  status    String   @default("ACTIVE") // ACTIVE, PAUSED, ENDED
+  totalEarnings Float @default(0)
+  totalDeliveries Int @default(0)
+  totalDistance Float @default(0) // in km
+  totalTime Int     @default(0)   // in minutes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, startTime])
+}
+
+// Comprehensive time estimates
+model OrderTimeEstimate {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  preparationTime Int    // in minutes
+  pickupTime Int         // in minutes  
+  deliveryTime Int       // in minutes
+  totalTime Int          // in minutes
+  estimatedPickup DateTime?
+  estimatedDelivery DateTime?
+  actualPickup DateTime?
+  actualDelivery DateTime?
+  accuracy Float?        // Accuracy percentage
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// Driver assignment queue
+model DriverAssignment {
+  id        String   @id @default(cuid())
+  orderId   String
+  driverId  String
+  priority  Int      @default(0) // Higher number = higher priority
+  distance  Float    // Distance from driver to pickup in km
+  eta       Int      // ETA in minutes
+  status    String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, EXPIRED
+  assignedAt DateTime @default(now())
+  respondedAt DateTime?
+  response  String?  // Driver's response message
+  expiresAt DateTime
+
+  // Relations
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver Driver @relation(fields: [driverId], references: [id])
+  
+  @@index([orderId, priority])
+  @@index([driverId, status])
+  @@index([expiresAt])
+}
+
+// Geofencing for pickup and delivery
+model Geofence {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // pickup, delivery, vendor_area
+  latitude  Float
+  longitude Float
+  radius    Float    // Radius in meters
+  vendorId  String?
+  orderId   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Relations
+  vendor Vendor? @relation(fields: [vendorId], references: [id])
+  order  Order?  @relation(fields: [orderId], references: [id])
+  
+  @@index([latitude, longitude])
+  @@index([vendorId])
+}
+
+// Route optimization
+model DeliveryRoute {
+  id        String   @id @default(cuid())
+  driverId  String
+  orderIds  String[] // Array of order IDs in route
+  route     Json     // Route data from Google Maps
+  distance  Float    // Total distance in km
+  duration  Int      // Total duration in minutes
+  optimized Boolean  @default(false)
+  status    String   @default("PLANNED") // PLANNED, ACTIVE, COMPLETED
+  startedAt DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  driver Driver @relation(fields: [driverId], references: [id])
+  
+  @@index([driverId, status])
 }
 
 model Notification {

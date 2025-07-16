@@ -10,11 +10,15 @@ import {
   DocumentType,
   DocumentStatus,
   KYCStatus,
-  PromoCodeType
+  PromoCodeType,
+  DriverAvailabilityStatusType,
+  AssignmentStatus,
+  ServiceType,
+  MatchingAlgorithmType
 } from "@prisma/client"
 
 // Re-export for components
-export type { RideStatus } from "@prisma/client"
+export type { RideStatus, DriverAvailabilityStatusType, AssignmentStatus, ServiceType, MatchingAlgorithmType } from "@prisma/client"
 
 export interface User {
   id: string
@@ -1078,4 +1082,416 @@ export interface PaginatedResponse<T> {
     total: number
     pages: number
   }
+}
+
+// Enhanced Matching Algorithm Types
+
+export interface DriverAvailabilityStatus {
+  id: string
+  driverId: string
+  status: DriverAvailabilityStatusType
+  reason?: string
+  startTime: Date
+  endTime?: Date
+  latitude?: number
+  longitude?: number
+  batteryLevel?: number
+  connectionStrength?: number
+  appVersion?: string
+  metadata?: any
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DriverPerformanceMetrics {
+  id: string
+  driverId: string
+  period: string
+  periodStart: Date
+  periodEnd: Date
+  totalAssignments: number
+  acceptedAssignments: number
+  rejectedAssignments: number
+  expiredAssignments: number
+  completedAssignments: number
+  acceptanceRate: number
+  completionRate: number
+  avgResponseTime: number
+  avgPickupTime: number
+  avgDeliveryTime: number
+  avgRating: number
+  totalReviews: number
+  customerComplaints: number
+  totalDistance: number
+  totalEarnings: number
+  totalOnlineTime: number
+  totalActiveTime: number
+  latePickups: number
+  lateDeliveries: number
+  cancellations: number
+  noShows: number
+  ordersPerHour: number
+  milesPerOrder: number
+  revenuePerHour: number
+  matchingScore: number
+  priorityLevel: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DriverMatchingPreferences {
+  id: string
+  driverId: string
+  serviceTypes: ServiceType[]
+  maxDistance: number
+  maxOrderValue?: number
+  minOrderValue?: number
+  preferredCuisines: string[]
+  avoidCuisines: string[]
+  acceptCashOnDelivery: boolean
+  acceptLargeOrders: boolean
+  acceptBulkOrders: boolean
+  acceptScheduledOrders: boolean
+  acceptSharedRides: boolean
+  acceptLongRides: boolean
+  acceptAirportRides: boolean
+  maxPassengers: number
+  preferredAreas: string[]
+  avoidAreas: string[]
+  workingHours?: any
+  breakDuration: number
+  maxConsecutiveHours: number
+  enablePushNotifications: boolean
+  enableSmsNotifications: boolean
+  enableEmailNotifications: boolean
+  notificationSound?: string
+  vibrationEnabled: boolean
+  autoAcceptOrders: boolean
+  autoAcceptThreshold?: number
+  responseTimeLimit: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DriverAssignmentHistory {
+  id: string
+  driverId: string
+  orderId?: string
+  rideId?: string
+  assignmentId?: string
+  assignmentType: string
+  status: AssignmentStatus
+  priority: number
+  distance: number
+  eta: number
+  assignedAt: Date
+  offeredAt?: Date
+  respondedAt?: Date
+  acceptedAt?: Date
+  rejectedAt?: Date
+  expiredAt?: Date
+  completedAt?: Date
+  responseTime?: number
+  rejectionReason?: string
+  autoAccepted: boolean
+  pickupTime?: Date
+  deliveryTime?: Date
+  actualDistance?: number
+  actualDuration?: number
+  customerRating?: number
+  matchingScore?: number
+  algorithmVersion?: string
+  factors?: any
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DriverWorkingHours {
+  id: string
+  driverId: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  isActive: boolean
+  timezone: string
+  breakStart?: string
+  breakEnd?: string
+  isHoliday: boolean
+  holidayName?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DriverServiceArea {
+  id: string
+  driverId: string
+  name: string
+  type: string
+  coordinates: any
+  radius?: number
+  isActive: boolean
+  priority: number
+  serviceTypes: string[]
+  minimumFare?: number
+  maximumFare?: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DriverBatteryStatus {
+  id: string
+  driverId: string
+  batteryLevel: number
+  isCharging: boolean
+  lowBattery: boolean
+  criticalBattery: boolean
+  estimatedTime?: number
+  timestamp: Date
+}
+
+export interface DriverConnectionStatus {
+  id: string
+  driverId: string
+  connectionType: string
+  signalStrength: number
+  networkProvider?: string
+  isConnected: boolean
+  latency?: number
+  timestamp: Date
+}
+
+export interface DriverGeofenceStatus {
+  id: string
+  driverId: string
+  geofenceId: string
+  status: string
+  latitude: number
+  longitude: number
+  timestamp: Date
+}
+
+export interface MatchingAlgorithmConfig {
+  id: string
+  name: string
+  algorithmType: MatchingAlgorithmType
+  isActive: boolean
+  version: string
+  distanceWeight: number
+  ratingWeight: number
+  completionRateWeight: number
+  responseTimeWeight: number
+  availabilityWeight: number
+  maxDistance: number
+  maxAssignments: number
+  assignmentTimeout: number
+  reassignmentDelay: number
+  minRating: number
+  minCompletionRate: number
+  maxResponseTime: number
+  enableSurgeMatching: boolean
+  enableBatchMatching: boolean
+  enablePredictiveMatching: boolean
+  testingEnabled: boolean
+  testingPercentage: number
+  configuration?: any
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface MatchingAssignment {
+  id: string
+  configId: string
+  driverId: string
+  orderId?: string
+  rideId?: string
+  assignmentType: string
+  status: AssignmentStatus
+  priority: number
+  totalScore: number
+  distanceScore: number
+  ratingScore: number
+  completionRateScore: number
+  responseTimeScore: number
+  availabilityScore: number
+  distance: number
+  eta: number
+  responseTimeout: Date
+  driverLatitude: number
+  driverLongitude: number
+  assignedAt: Date
+  offeredAt?: Date
+  respondedAt?: Date
+  acceptedAt?: Date
+  rejectedAt?: Date
+  expiredAt?: Date
+  reassignedAt?: Date
+  responseTime?: number
+  rejectionReason?: string
+  autoAccepted: boolean
+  successful: boolean
+  customerSatisfaction?: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface ReassignmentQueue {
+  id: string
+  orderId?: string
+  rideId?: string
+  assignmentType: string
+  priority: number
+  attempt: number
+  maxAttempts: number
+  originalDriverId?: string
+  originalRejectionReason?: string
+  status: string
+  processedAt?: Date
+  completedAt?: Date
+  escalationLevel: number
+  escalatedAt?: Date
+  metadata?: any
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface SystemPerformanceMetrics {
+  id: string
+  timestamp: Date
+  totalAssignments: number
+  successfulAssignments: number
+  failedAssignments: number
+  avgMatchingTime: number
+  totalActiveDrivers: number
+  totalAvailableDrivers: number
+  avgDriverUtilization: number
+  avgResponseTime: number
+  avgAcceptanceRate: number
+  avgCustomerRating: number
+  avgWaitTime: number
+  systemLoad: number
+  databaseResponseTime: number
+  apiResponseTime: number
+  createdAt: Date
+}
+
+// Matching Service Types
+export interface MatchingLocation {
+  latitude: number
+  longitude: number
+  address?: string
+}
+
+export interface MatchingRequest {
+  id: string
+  type: 'ORDER' | 'RIDE'
+  pickupLocation: MatchingLocation
+  destinationLocation?: MatchingLocation
+  serviceType: ServiceType
+  estimatedValue?: number
+  priority?: number
+  preferredDriverId?: string
+  requirements?: {
+    vehicleType?: string
+    minRating?: number
+    maxDistance?: number
+    specialRequirements?: string[]
+  }
+  scheduledFor?: Date
+  customerPreferences?: {
+    allowShared?: boolean
+    preferredGender?: string
+    accessibilityNeeds?: string[]
+  }
+}
+
+export interface DriverMatch {
+  driverId: string
+  distance: number
+  eta: number
+  totalScore: number
+  scores: {
+    distance: number
+    rating: number
+    completionRate: number
+    responseTime: number
+    availability: number
+  }
+  driver: {
+    id: string
+    rating: number
+    totalDeliveries: number
+    totalRides: number
+    vehicleType: string
+    currentLatitude: number
+    currentLongitude: number
+    user: {
+      name: string
+      phone: string
+    }
+  }
+  isAvailable: boolean
+  batteryLevel?: number
+  connectionStrength?: number
+}
+
+export interface MatchingResult {
+  success: boolean
+  matches: DriverMatch[]
+  assignmentId?: string
+  estimatedWaitTime?: number
+  error?: string
+  algorithm: {
+    type: MatchingAlgorithmType
+    version: string
+    processingTime: number
+  }
+}
+
+export interface ReassignmentOptions {
+  originalDriverId: string
+  rejectionReason?: string
+  escalationLevel?: number
+  expandRadius?: boolean
+  increasePriority?: boolean
+}
+
+export interface MatchingStatistics {
+  totalAssignments: number
+  successfulAssignments: number
+  failedAssignments: number
+  successRate: number
+  avgResponseTime: number
+  acceptanceRate: number
+  assignments: MatchingAssignment[]
+}
+
+export interface DriverAvailabilityUpdate {
+  driverId: string
+  status: DriverAvailabilityStatusType
+  reason?: string
+  location?: {
+    latitude: number
+    longitude: number
+  }
+  batteryLevel?: number
+  connectionStrength?: number
+  appVersion?: string
+  metadata?: any
+}
+
+export interface DriverScores {
+  distance: number
+  rating: number
+  completionRate: number
+  responseTime: number
+  availability: number
+}
+
+export interface AssignmentResponse {
+  assignmentId: string
+  driverId: string
+  response: 'ACCEPTED' | 'REJECTED'
+  rejectionReason?: string
+  responseTime?: number
+  autoAccepted?: boolean
 }

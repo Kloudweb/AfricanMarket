@@ -466,6 +466,18 @@ model Driver {
   // Rideshare relations
   driverResponses   DriverResponse[]
   driverPreferences DriverPreference?
+  
+  // Enhanced matching algorithm relations
+  availabilityStatus DriverAvailabilityStatus[]
+  performanceMetrics DriverPerformanceMetrics[]
+  matchingPreferences DriverMatchingPreferences?
+  assignmentHistory DriverAssignmentHistory[]
+  workingHoursConfig DriverWorkingHours[]
+  serviceAreas     DriverServiceArea[]
+  batteryStatus    DriverBatteryStatus[]
+  connectionStatus DriverConnectionStatus[]
+  geofenceStatus   DriverGeofenceStatus[]
+  matchingAssignments MatchingAssignment[]
 }
 
 model Order {
@@ -514,6 +526,11 @@ model Order {
   timeEstimate    OrderTimeEstimate?
   assignments     DriverAssignment[]
   geofences       Geofence[]
+  
+  // Enhanced matching algorithm relations
+  assignmentHistory     DriverAssignmentHistory[]
+  matchingAssignments   MatchingAssignment[]
+  reassignmentQueue     ReassignmentQueue[]
 }
 
 model OrderItem {
@@ -584,6 +601,11 @@ model Ride {
   
   // Order Tracking relations
   pushNotifications PushNotification[]
+  
+  // Enhanced matching algorithm relations
+  assignmentHistory     DriverAssignmentHistory[]
+  matchingAssignments   MatchingAssignment[]
+  reassignmentQueue     ReassignmentQueue[]
   
   @@index([customerId, createdAt])
   @@index([driverId, createdAt])
@@ -912,6 +934,9 @@ model Geofence {
   // Relations
   vendor Vendor? @relation(fields: [vendorId], references: [id])
   order  Order?  @relation(fields: [orderId], references: [id])
+  
+  // Enhanced matching algorithm relations
+  driverGeofenceStatus  DriverGeofenceStatus[]
   
   @@index([latitude, longitude])
   @@index([vendorId])
@@ -2005,4 +2030,502 @@ model RideStatistics {
   
   @@unique([date])
   @@index([date])
+}
+
+// Enhanced Matching Algorithm Models
+
+enum DriverAvailabilityStatusType {
+  ONLINE
+  OFFLINE
+  BUSY
+  AVAILABLE
+  BREAK
+  EMERGENCY
+  MAINTENANCE
+}
+
+enum AssignmentStatus {
+  PENDING
+  OFFERED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  COMPLETED
+  FAILED
+}
+
+enum ServiceType {
+  FOOD_DELIVERY
+  RIDESHARE
+  BOTH
+}
+
+enum MatchingAlgorithmType {
+  PROXIMITY_BASED
+  PERFORMANCE_BASED
+  HYBRID
+  MACHINE_LEARNING
+}
+
+model DriverAvailabilityStatus {
+  id          String                    @id @default(cuid())
+  driverId    String
+  status      DriverAvailabilityStatusType
+  reason      String?
+  startTime   DateTime                  @default(now())
+  endTime     DateTime?
+  latitude    Float?
+  longitude   Float?
+  batteryLevel Int?
+  connectionStrength Int?
+  appVersion  String?
+  metadata    Json?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+  
+  driver      Driver                    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, status])
+  @@index([startTime, endTime])
+}
+
+model DriverPerformanceMetrics {
+  id                    String    @id @default(cuid())
+  driverId              String
+  period                String    // "daily", "weekly", "monthly"
+  periodStart           DateTime
+  periodEnd             DateTime
+  
+  // Assignment metrics
+  totalAssignments      Int       @default(0)
+  acceptedAssignments   Int       @default(0)
+  rejectedAssignments   Int       @default(0)
+  expiredAssignments    Int       @default(0)
+  completedAssignments  Int       @default(0)
+  
+  // Performance metrics
+  acceptanceRate        Float     @default(0)
+  completionRate        Float     @default(0)
+  avgResponseTime       Float     @default(0) // in seconds
+  avgPickupTime         Float     @default(0) // in minutes
+  avgDeliveryTime       Float     @default(0) // in minutes
+  
+  // Customer satisfaction
+  avgRating             Float     @default(0)
+  totalReviews          Int       @default(0)
+  customerComplaints    Int       @default(0)
+  
+  // Operational metrics
+  totalDistance         Float     @default(0) // in km
+  totalEarnings         Float     @default(0)
+  totalOnlineTime       Int       @default(0) // in minutes
+  totalActiveTime       Int       @default(0) // in minutes
+  
+  // Reliability metrics
+  latePickups           Int       @default(0)
+  lateDeliveries        Int       @default(0)
+  cancellations         Int       @default(0)
+  noShows               Int       @default(0)
+  
+  // Efficiency metrics
+  ordersPerHour         Float     @default(0)
+  milesPerOrder         Float     @default(0)
+  revenuePerHour        Float     @default(0)
+  
+  // Matching algorithm factors
+  matchingScore         Float     @default(0)
+  priorityLevel         Int       @default(0)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  driver                Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, period])
+  @@index([periodStart, periodEnd])
+  @@index([matchingScore])
+  @@index([priorityLevel])
+  @@unique([driverId, period, periodStart])
+}
+
+model DriverMatchingPreferences {
+  id                    String      @id @default(cuid())
+  driverId              String      @unique
+  
+  // Service preferences
+  serviceTypes          ServiceType[]
+  maxDistance           Float       @default(15) // in km
+  maxOrderValue         Float?
+  minOrderValue         Float?
+  preferredCuisines     String[]
+  avoidCuisines         String[]
+  
+  // Delivery preferences
+  acceptCashOnDelivery  Boolean     @default(true)
+  acceptLargeOrders     Boolean     @default(true)
+  acceptBulkOrders      Boolean     @default(true)
+  acceptScheduledOrders Boolean     @default(true)
+  
+  // Rideshare preferences
+  acceptSharedRides     Boolean     @default(true)
+  acceptLongRides       Boolean     @default(true)
+  acceptAirportRides    Boolean     @default(true)
+  maxPassengers         Int         @default(4)
+  
+  // Working preferences
+  preferredAreas        String[]
+  avoidAreas            String[]
+  workingHours          Json?
+  breakDuration         Int         @default(30) // in minutes
+  maxConsecutiveHours   Int         @default(8)
+  
+  // Notification preferences
+  enablePushNotifications Boolean   @default(true)
+  enableSmsNotifications Boolean    @default(true)
+  enableEmailNotifications Boolean  @default(false)
+  notificationSound     String?
+  vibrationEnabled      Boolean     @default(true)
+  
+  // Assignment preferences
+  autoAcceptOrders      Boolean     @default(false)
+  autoAcceptThreshold   Float?      // Auto-accept if score > threshold
+  responseTimeLimit     Int         @default(30) // in seconds
+  
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  
+  driver                Driver      @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId])
+}
+
+model DriverAssignmentHistory {
+  id                String          @id @default(cuid())
+  driverId          String
+  orderId           String?
+  rideId            String?
+  assignmentId      String?
+  
+  // Assignment details
+  assignmentType    String          // "ORDER", "RIDE"
+  status            AssignmentStatus
+  priority          Int             @default(0)
+  distance          Float           // in km
+  eta               Int             // in minutes
+  
+  // Timing information
+  assignedAt        DateTime        @default(now())
+  offeredAt         DateTime?
+  respondedAt       DateTime?
+  acceptedAt        DateTime?
+  rejectedAt        DateTime?
+  expiredAt         DateTime?
+  completedAt       DateTime?
+  
+  // Response details
+  responseTime      Int?            // in seconds
+  rejectionReason   String?
+  autoAccepted      Boolean         @default(false)
+  
+  // Performance metrics
+  pickupTime        DateTime?
+  deliveryTime      DateTime?
+  actualDistance    Float?
+  actualDuration    Int?            // in minutes
+  customerRating    Float?
+  
+  // Algorithm factors
+  matchingScore     Float?
+  algorithmVersion  String?
+  factors           Json?           // Scoring factors used
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  driver            Driver          @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  order             Order?          @relation(fields: [orderId], references: [id])
+  ride              Ride?           @relation(fields: [rideId], references: [id])
+  
+  @@index([driverId, assignmentType])
+  @@index([assignedAt])
+  @@index([status])
+  @@index([matchingScore])
+}
+
+model DriverWorkingHours {
+  id          String    @id @default(cuid())
+  driverId    String
+  dayOfWeek   Int       // 0-6 (Sunday-Saturday)
+  startTime   String    // HH:MM format
+  endTime     String    // HH:MM format
+  isActive    Boolean   @default(true)
+  timezone    String    @default("America/St_Johns")
+  
+  // Break times
+  breakStart  String?   // HH:MM format
+  breakEnd    String?   // HH:MM format
+  
+  // Special conditions
+  isHoliday   Boolean   @default(false)
+  holidayName String?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  driver      Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, dayOfWeek])
+  @@index([isActive])
+}
+
+model DriverServiceArea {
+  id          String    @id @default(cuid())
+  driverId    String
+  name        String
+  type        String    // "POLYGON", "CIRCLE", "RECTANGLE"
+  coordinates Json      // GeoJSON format
+  radius      Float?    // for circle type
+  isActive    Boolean   @default(true)
+  priority    Int       @default(0)
+  
+  // Service restrictions
+  serviceTypes String[]
+  minimumFare  Float?
+  maximumFare  Float?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  driver      Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, isActive])
+  @@index([priority])
+}
+
+model DriverBatteryStatus {
+  id            String    @id @default(cuid())
+  driverId      String
+  batteryLevel  Int       // 0-100
+  isCharging    Boolean   @default(false)
+  lowBattery    Boolean   @default(false)
+  criticalBattery Boolean @default(false)
+  estimatedTime Int?      // minutes until battery dies
+  
+  timestamp     DateTime  @default(now())
+  
+  driver        Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, timestamp])
+  @@index([batteryLevel])
+}
+
+model DriverConnectionStatus {
+  id              String    @id @default(cuid())
+  driverId        String
+  connectionType  String    // "WIFI", "CELLULAR", "OFFLINE"
+  signalStrength  Int       // 0-100
+  networkProvider String?
+  isConnected     Boolean   @default(true)
+  latency         Int?      // in milliseconds
+  
+  timestamp       DateTime  @default(now())
+  
+  driver          Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([driverId, timestamp])
+  @@index([isConnected])
+}
+
+model DriverGeofenceStatus {
+  id          String    @id @default(cuid())
+  driverId    String
+  geofenceId  String
+  status      String    // "ENTERED", "EXITED", "INSIDE", "OUTSIDE"
+  latitude    Float
+  longitude   Float
+  
+  timestamp   DateTime  @default(now())
+  
+  driver      Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  geofence    Geofence  @relation(fields: [geofenceId], references: [id])
+  
+  @@index([driverId, geofenceId])
+  @@index([timestamp])
+}
+
+model MatchingAlgorithmConfig {
+  id                    String                @id @default(cuid())
+  name                  String                @unique
+  algorithmType         MatchingAlgorithmType
+  isActive              Boolean               @default(false)
+  version               String                @default("1.0")
+  
+  // Scoring weights
+  distanceWeight        Float                 @default(0.4)
+  ratingWeight          Float                 @default(0.2)
+  completionRateWeight  Float                 @default(0.2)
+  responseTimeWeight    Float                 @default(0.1)
+  availabilityWeight    Float                 @default(0.1)
+  
+  // Algorithm parameters
+  maxDistance           Float                 @default(15) // in km
+  maxAssignments        Int                   @default(3)
+  assignmentTimeout     Int                   @default(60) // in seconds
+  reassignmentDelay     Int                   @default(30) // in seconds
+  
+  // Performance thresholds
+  minRating             Float                 @default(3.0)
+  minCompletionRate     Float                 @default(0.8)
+  maxResponseTime       Int                   @default(120) // in seconds
+  
+  // Business rules
+  enableSurgeMatching   Boolean               @default(true)
+  enableBatchMatching   Boolean               @default(false)
+  enablePredictiveMatching Boolean            @default(false)
+  
+  // A/B testing
+  testingEnabled        Boolean               @default(false)
+  testingPercentage     Float                 @default(0.1)
+  
+  configuration         Json?                 // Additional config parameters
+  
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  
+  assignments           MatchingAssignment[]
+  
+  @@index([isActive])
+  @@index([algorithmType])
+}
+
+model MatchingAssignment {
+  id                    String                @id @default(cuid())
+  configId              String
+  driverId              String
+  orderId               String?
+  rideId                String?
+  
+  // Assignment details
+  assignmentType        String                // "ORDER", "RIDE"
+  status                AssignmentStatus
+  priority              Int                   @default(0)
+  
+  // Matching scores
+  totalScore            Float
+  distanceScore         Float
+  ratingScore           Float
+  completionRateScore   Float
+  responseTimeScore     Float
+  availabilityScore     Float
+  
+  // Distance and timing
+  distance              Float                 // in km
+  eta                   Int                   // in minutes
+  responseTimeout       DateTime
+  
+  // Driver location at assignment
+  driverLatitude        Float
+  driverLongitude       Float
+  
+  // Assignment flow
+  assignedAt            DateTime              @default(now())
+  offeredAt             DateTime?
+  respondedAt           DateTime?
+  acceptedAt            DateTime?
+  rejectedAt            DateTime?
+  expiredAt             DateTime?
+  reassignedAt          DateTime?
+  
+  // Response details
+  responseTime          Int?                  // in seconds
+  rejectionReason       String?
+  autoAccepted          Boolean               @default(false)
+  
+  // Performance tracking
+  successful            Boolean               @default(false)
+  customerSatisfaction  Float?
+  
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  
+  config                MatchingAlgorithmConfig @relation(fields: [configId], references: [id])
+  driver                Driver                @relation(fields: [driverId], references: [id])
+  order                 Order?                @relation(fields: [orderId], references: [id])
+  ride                  Ride?                 @relation(fields: [rideId], references: [id])
+  
+  @@index([driverId, status])
+  @@index([assignedAt])
+  @@index([totalScore])
+  @@index([orderId])
+  @@index([rideId])
+}
+
+model ReassignmentQueue {
+  id                    String    @id @default(cuid())
+  orderId               String?
+  rideId                String?
+  assignmentType        String    // "ORDER", "RIDE"
+  priority              Int       @default(0)
+  attempt               Int       @default(1)
+  maxAttempts           Int       @default(5)
+  
+  // Original assignment details
+  originalDriverId      String?
+  originalRejectionReason String?
+  
+  // Queue processing
+  status                String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  processedAt           DateTime?
+  completedAt           DateTime?
+  
+  // Escalation details
+  escalationLevel       Int       @default(0)
+  escalatedAt           DateTime?
+  
+  // Metadata
+  metadata              Json?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  order                 Order?    @relation(fields: [orderId], references: [id])
+  ride                  Ride?     @relation(fields: [rideId], references: [id])
+  
+  @@index([assignmentType, status])
+  @@index([priority, createdAt])
+  @@index([attempt, maxAttempts])
+}
+
+model SystemPerformanceMetrics {
+  id                    String    @id @default(cuid())
+  timestamp             DateTime  @default(now())
+  
+  // Matching performance
+  totalAssignments      Int       @default(0)
+  successfulAssignments Int       @default(0)
+  failedAssignments     Int       @default(0)
+  avgMatchingTime       Float     @default(0) // in seconds
+  
+  // Driver utilization
+  totalActiveDrivers    Int       @default(0)
+  totalAvailableDrivers Int       @default(0)
+  avgDriverUtilization  Float     @default(0) // percentage
+  
+  // Response metrics
+  avgResponseTime       Float     @default(0) // in seconds
+  avgAcceptanceRate     Float     @default(0) // percentage
+  
+  // Customer satisfaction
+  avgCustomerRating     Float     @default(0)
+  avgWaitTime           Float     @default(0) // in minutes
+  
+  // System health
+  systemLoad            Float     @default(0) // percentage
+  databaseResponseTime  Float     @default(0) // in milliseconds
+  apiResponseTime       Float     @default(0) // in milliseconds
+  
+  createdAt             DateTime  @default(now())
+  
+  @@index([timestamp])
 }
